@@ -93,7 +93,8 @@ class DockerOrchestrator:
                 },
                 "environment": {
                     "OLLAMA_BASE_URL": ollama_url,
-                    "WEBUI_AUTH": "false",  # Simple development configuration
+                    "WEBUI_AUTH": "true",
+                    "ENABLE_SIGNUP": "true",
                 },
                 "extra_hosts": {"host.docker.internal": "host-gateway"}
             },

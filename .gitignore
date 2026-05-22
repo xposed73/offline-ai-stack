@@ -1,0 +1,21 @@
+# Environments
+.venv/
+env/
+venv/
+ENV/
+
+# Python cache / compiled
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Local configuration
+.env
+
+# Application data & logs
+data/
+
+# IDE files
+.vscode/
+.idea/

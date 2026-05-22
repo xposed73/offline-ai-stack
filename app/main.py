@@ -4,7 +4,9 @@ from pathlib import Path
 from typing import Optional
 import uvicorn
 from fastapi import FastAPI, HTTPException, status
+from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
+from app.utils.dashboard import get_dashboard_html
 
 # Core Stack Imports
 from app.config.settings import settings
@@ -52,6 +54,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.get("/", response_class=HTMLResponse, tags=["Dashboard"])
+def get_control_panel():
+    """Serves the beautiful interactive Web Control Panel."""
+    return get_dashboard_html()
 
 @app.get("/status", tags=["System"])
 def get_api_status():

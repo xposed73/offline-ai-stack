@@ -65,7 +65,7 @@ class DockerOrchestrator:
         return url
 
     def get_services_definitions(self) -> List[Dict[str, Any]]:
-        """Defines Qdrant, OpenWebUI, and n8n container specs."""
+        """Defines Qdrant, OpenWebUI, XTTS, and n8n container specs."""
         ollama_url = self._get_ollama_docker_url()
         
         return [
@@ -94,8 +94,30 @@ class DockerOrchestrator:
                 "environment": {
                     "OLLAMA_BASE_URL": ollama_url,
                     "WEBUI_AUTH": "false",
+                    "AUDIO_TTS_ENGINE": "openai",
+                    "AUDIO_TTS_API_BASE_URL": "http://xtts:8020/v1",
+                    "AUDIO_TTS_API_KEY": "dummy",
+                    "AUDIO_TTS_MODEL": "tts-1",
+                    "AUDIO_TTS_VOICE": "de_voice.wav"
                 },
                 "extra_hosts": {"host.docker.internal": "host-gateway"}
+            },
+            {
+                "name": "xtts",
+                "image": "ghcr.io/coqui-ai/xtts-api-server:latest",
+                "ports": {
+                    "8020/tcp": settings.XTTS_PORT
+                },
+                "volumes": {
+                    str(settings.xtts_path): {"bind": "/root/.local/share/tts", "mode": "rw"}
+                },
+                "environment": {
+                    "COQUI_TOS_AGREED": "1"
+                },
+                "extra_hosts": {"host.docker.internal": "host-gateway"},
+                "device_requests": [
+                    docker.types.DeviceRequest(count=-1, capabilities=[['gpu']])
+                ]
             },
             {
                 "name": "n8n",
@@ -231,18 +253,31 @@ class DockerOrchestrator:
             # Run container
             logger.info(f"Starting container '{name}' on port {list(spec['ports'].values())[0]}...")
             
-            # Format ports: Docker SDK requires {"8080/tcp": 3000} format
-            self.client.containers.run(
-                image,
-                name=name,
-                detach=True,
-                ports=spec["ports"],
-                volumes=spec["volumes"],
-                environment=spec["environment"],
-                extra_hosts=spec["extra_hosts"],
-                network=self.network_name,
-                restart_policy={"Name": "always"}
-            )
+            run_kwargs = {
+                "image": image,
+                "name": name,
+                "detach": True,
+                "ports": spec["ports"],
+                "volumes": spec["volumes"],
+                "environment": spec["environment"],
+                "extra_hosts": spec["extra_hosts"],
+                "network": self.network_name,
+                "restart_policy": {"Name": "always"}
+            }
+            
+            if "device_requests" in spec:
+                run_kwargs["device_requests"] = spec["device_requests"]
+                
+            try:
+                self.client.containers.run(**run_kwargs)
+            except Exception as e:
+                # If GPU reservation fails, fallback to CPU
+                if "device_requests" in run_kwargs and ("gpu" in str(e).lower() or "device" in str(e).lower()):
+                    logger.warning(f"Failed to start container '{name}' with GPU reservation. Retrying in CPU fallback mode. Error: {e}")
+                    del run_kwargs["device_requests"]
+                    self.client.containers.run(**run_kwargs)
+                else:
+                    raise e
             
         logger.info("All containers initialized successfully.")
         # Pause slightly to allow startup

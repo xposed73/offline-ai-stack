@@ -32,12 +32,13 @@ class TestDockerOrchestrator(unittest.TestCase):
         orc = DockerOrchestrator()
         specs = orc.get_services_definitions()
         
-        # Check we have exactly 3 defined containers
-        self.assertEqual(len(specs), 3)
+        # Check we have exactly 4 defined containers
+        self.assertEqual(len(specs), 4)
         
         names = [spec["name"] for spec in specs]
         self.assertIn("qdrant", names)
         self.assertIn("open-webui", names)
+        self.assertIn("xtts", names)
         self.assertIn("n8n", names)
         
         # Verify OpenWebUI contains the OLLAMA_BASE_URL env setting

@@ -52,7 +52,7 @@ class QdrantManager:
             # Fallback values for common embedding models
             if "nomic" in model_name:
                 return 768
-            if "bge-large" in model_name:
+            if "bge" in model_name:
                 return 1024
             if "minilm" in model_name:
                 return 384

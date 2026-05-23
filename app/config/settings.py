@@ -34,15 +34,17 @@ class AppSettings(BaseSettings):
     QDRANT_GRPC_PORT: int = Field(default=6334, env="QDRANT_GRPC_PORT")
     QDRANT_COLLECTION_NAME: str = Field(default="rag_documents", env="QDRANT_COLLECTION_NAME")
 
-    # OpenWebUI & n8n
+    # OpenWebUI, n8n, & XTTS
     OPENWEBUI_PORT: int = Field(default=3000, env="OPENWEBUI_PORT")
     N8N_PORT: int = Field(default=5678, env="N8N_PORT")
+    XTTS_PORT: int = Field(default=8020, env="XTTS_PORT")
 
     # Storage paths
     DATA_DIR: str = Field(default="./data", env="DATA_DIR")
     QDRANT_STORAGE_DIR: str = Field(default="./data/qdrant", env="QDRANT_STORAGE_DIR")
     OPENWEBUI_STORAGE_DIR: str = Field(default="./data/openwebui", env="OPENWEBUI_STORAGE_DIR")
     N8N_STORAGE_DIR: str = Field(default="./data/n8n", env="N8N_STORAGE_DIR")
+    XTTS_STORAGE_DIR: str = Field(default="./data/xtts", env="XTTS_STORAGE_DIR")
     INGESTION_DIR: str = Field(default="./data/ingest", env="INGESTION_DIR")
 
     @property
@@ -62,6 +64,10 @@ class AppSettings(BaseSettings):
         return Path(self.N8N_STORAGE_DIR).resolve()
 
     @property
+    def xtts_path(self) -> Path:
+        return Path(self.XTTS_STORAGE_DIR).resolve()
+
+    @property
     def ingest_path(self) -> Path:
         return Path(self.INGESTION_DIR).resolve()
 
@@ -71,6 +77,7 @@ class AppSettings(BaseSettings):
         self.qdrant_path.mkdir(parents=True, exist_ok=True)
         self.openwebui_path.mkdir(parents=True, exist_ok=True)
         self.n8n_path.mkdir(parents=True, exist_ok=True)
+        self.xtts_path.mkdir(parents=True, exist_ok=True)
         self.ingest_path.mkdir(parents=True, exist_ok=True)
 
 # Instantiate settings

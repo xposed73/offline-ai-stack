@@ -46,6 +46,9 @@ offline-ai-stack/
 ├── README.md                   # System operations guide and manual
 ├── .env.example                # Sample environment config settings
 ├── setup.py                    # Legacy installation fallback
+├── start_stack.bat             # One-click startup launcher script
+├── stop_stack.bat              # One-click stack shutdown script
+├── status_stack.bat            # One-click stack and system status check script
 │
 ├── app/                        # Main Application Code
 │   ├── main.py                 # Unified CLI Command Router & FastAPI Launcher
@@ -62,7 +65,8 @@ offline-ai-stack/
 │   └── utils/                  # Mock PDF creators & size calculators
 │
 ├── scripts/
-│   └── bootstrap.ps1           # Windows automated installer & UV compiler
+│   ├── bootstrap.ps1           # Windows automated installer & UV compiler
+│   └── status.ps1              # System and stack status monitor script
 │
 ├── docs/
 │   └── architecture.md         # Network structures and topology maps
@@ -107,6 +111,9 @@ Once started successfully, visit the running dashboard interfaces:
 * ⚙️ **n8n Automation Console**: [http://localhost:5678](http://localhost:5678)
 * 🗄️ **Qdrant Vector Database Dashboard**: [http://localhost:6333/dashboard](http://localhost:6333/dashboard)
 
+### Step 5: Check Stack & System Status
+You can quickly check the status of the container stack and verify system health at any time by double-clicking `status_stack.bat` in the root of the workspace or running `.\scripts\status.ps1` in PowerShell.
+
 ---
 
 ## ━━━━━━━━━━━━━━━━━━
@@ -116,8 +123,14 @@ Once started successfully, visit the running dashboard interfaces:
 The stack provides an interactive Rich CLI to operate your offline pipeline directly from your shell:
 
 ### Check Environment Health
+Use the convenience batch file/script to run checks, or query the CLI directly:
 ```powershell
+# Double-click status_stack.bat, or run via powershell:
+.\scripts\status.ps1
+
+# Or query the underlying CLI directly:
 .venv\Scripts\offline-ai status
+.venv\Scripts\offline-ai system-check
 ```
 
 ### Ingest a Technical PDF Document

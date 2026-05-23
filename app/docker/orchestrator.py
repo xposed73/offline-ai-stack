@@ -104,7 +104,7 @@ class DockerOrchestrator:
             },
             {
                 "name": "xtts",
-                "image": "ghcr.io/coqui-ai/xtts-api-server:latest",
+                "image": "daswer123/xtts-api-server:latest",
                 "ports": {
                     "8020/tcp": settings.XTTS_PORT
                 },

@@ -92,10 +92,10 @@ class DockerOrchestrator:
         if settings.ENABLE_TTS:
             webui_env.update({
                 "AUDIO_TTS_ENGINE": "openai",
-                "AUDIO_TTS_API_BASE_URL": "http://xtts:8020/v1",
+                "AUDIO_TTS_API_BASE_URL": "http://kokoro:8880/v1",
                 "AUDIO_TTS_API_KEY": "dummy",
-                "AUDIO_TTS_MODEL": "tts-1",
-                "AUDIO_TTS_VOICE": "de_voice.wav"
+                "AUDIO_TTS_MODEL": "kokoro",
+                "AUDIO_TTS_VOICE": "de_female_1"
             })
 
         services.append({
@@ -113,17 +113,15 @@ class DockerOrchestrator:
 
         if settings.ENABLE_TTS:
             services.append({
-                "name": "xtts",
-                "image": "daswer123/xtts-api-server:latest",
+                "name": "kokoro",
+                "image": "ghcr.io/remsky/kokoro-fastapi-gpu:latest",
                 "ports": {
-                    "8020/tcp": settings.XTTS_PORT
+                    "8880/tcp": settings.KOKORO_PORT
                 },
                 "volumes": {
-                    str(settings.xtts_path): {"bind": "/root/.local/share/tts", "mode": "rw"}
+                    str(settings.kokoro_path): {"bind": "/app/voices", "mode": "rw"}
                 },
-                "environment": {
-                    "COQUI_TOS_AGREED": "1"
-                },
+                "environment": {},
                 "extra_hosts": {"host.docker.internal": "host-gateway"},
                 "device_requests": [
                     docker.types.DeviceRequest(count=-1, capabilities=[['gpu']])
@@ -287,6 +285,9 @@ class DockerOrchestrator:
                 if "device_requests" in run_kwargs and ("gpu" in str(e).lower() or "device" in str(e).lower()):
                     logger.warning(f"Failed to start container '{name}' with GPU reservation. Retrying in CPU fallback mode. Error: {e}")
                     del run_kwargs["device_requests"]
+                    # If this is the kokoro container, switch image to CPU version
+                    if name == "kokoro":
+                        run_kwargs["image"] = "ghcr.io/remsky/kokoro-fastapi-cpu:latest"
                     self.client.containers.run(**run_kwargs)
                 else:
                     raise e

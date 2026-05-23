@@ -10,8 +10,7 @@ __pycache__/
 *.pyo
 *.pyd
 
-# Local configuration
-.env
+
 
 # Application data & logs
 data/

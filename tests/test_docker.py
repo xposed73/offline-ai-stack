@@ -38,6 +38,7 @@ class TestDockerOrchestrator(unittest.TestCase):
             mock_settings.QDRANT_GRPC_PORT = 6334
             mock_settings.OPENWEBUI_PORT = 3000
             mock_settings.KOKORO_PORT = 8880
+            mock_settings.KOKORO_IMAGE = "ghcr.io/remsky/kokoro-fastapi-gpu:latest"
             mock_settings.N8N_PORT = 5678
             mock_settings.OLLAMA_HOST = "http://localhost:11434"
             mock_settings.qdrant_path = "/tmp/qdrant"

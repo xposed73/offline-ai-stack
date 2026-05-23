@@ -112,9 +112,9 @@ class DockerOrchestrator:
         })
 
         if settings.ENABLE_TTS:
-            services.append({
+            kokoro_spec = {
                 "name": "kokoro",
-                "image": "ghcr.io/remsky/kokoro-fastapi-gpu:latest",
+                "image": settings.KOKORO_IMAGE,
                 "ports": {
                     "8880/tcp": settings.KOKORO_PORT
                 },
@@ -122,11 +122,13 @@ class DockerOrchestrator:
                     str(settings.kokoro_path): {"bind": "/app/voices", "mode": "rw"}
                 },
                 "environment": {},
-                "extra_hosts": {"host.docker.internal": "host-gateway"},
-                "device_requests": [
+                "extra_hosts": {"host.docker.internal": "host-gateway"}
+            }
+            if "gpu" in settings.KOKORO_IMAGE.lower():
+                kokoro_spec["device_requests"] = [
                     docker.types.DeviceRequest(count=-1, capabilities=[['gpu']])
                 ]
-            })
+            services.append(kokoro_spec)
 
         services.append({
             "name": "n8n",

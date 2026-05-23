@@ -68,7 +68,7 @@ class DockerOrchestrator:
         """Defines Qdrant, OpenWebUI, XTTS, and n8n container specs."""
         ollama_url = self._get_ollama_docker_url()
         
-        return [
+        services = [
             {
                 "name": "qdrant",
                 "image": "qdrant/qdrant:latest",
@@ -81,28 +81,38 @@ class DockerOrchestrator:
                 },
                 "environment": {},
                 "extra_hosts": {"host.docker.internal": "host-gateway"}
+            }
+        ]
+
+        # Configure OpenWebUI environment settings (with optional TTS parameters)
+        webui_env = {
+            "OLLAMA_BASE_URL": ollama_url,
+            "WEBUI_AUTH": "false",
+        }
+        if settings.ENABLE_TTS:
+            webui_env.update({
+                "AUDIO_TTS_ENGINE": "openai",
+                "AUDIO_TTS_API_BASE_URL": "http://xtts:8020/v1",
+                "AUDIO_TTS_API_KEY": "dummy",
+                "AUDIO_TTS_MODEL": "tts-1",
+                "AUDIO_TTS_VOICE": "de_voice.wav"
+            })
+
+        services.append({
+            "name": "open-webui",
+            "image": "ghcr.io/open-webui/open-webui:main",
+            "ports": {
+                "8080/tcp": settings.OPENWEBUI_PORT
             },
-            {
-                "name": "open-webui",
-                "image": "ghcr.io/open-webui/open-webui:main",
-                "ports": {
-                    "8080/tcp": settings.OPENWEBUI_PORT
-                },
-                "volumes": {
-                    str(settings.openwebui_path): {"bind": "/app/backend/data", "mode": "rw"}
-                },
-                "environment": {
-                    "OLLAMA_BASE_URL": ollama_url,
-                    "WEBUI_AUTH": "false",
-                    "AUDIO_TTS_ENGINE": "openai",
-                    "AUDIO_TTS_API_BASE_URL": "http://xtts:8020/v1",
-                    "AUDIO_TTS_API_KEY": "dummy",
-                    "AUDIO_TTS_MODEL": "tts-1",
-                    "AUDIO_TTS_VOICE": "de_voice.wav"
-                },
-                "extra_hosts": {"host.docker.internal": "host-gateway"}
+            "volumes": {
+                str(settings.openwebui_path): {"bind": "/app/backend/data", "mode": "rw"}
             },
-            {
+            "environment": webui_env,
+            "extra_hosts": {"host.docker.internal": "host-gateway"}
+        })
+
+        if settings.ENABLE_TTS:
+            services.append({
                 "name": "xtts",
                 "image": "daswer123/xtts-api-server:latest",
                 "ports": {
@@ -118,24 +128,26 @@ class DockerOrchestrator:
                 "device_requests": [
                     docker.types.DeviceRequest(count=-1, capabilities=[['gpu']])
                 ]
+            })
+
+        services.append({
+            "name": "n8n",
+            "image": "docker.n8n.io/n8nio/n8n:latest",
+            "ports": {
+                "5678/tcp": settings.N8N_PORT
             },
-            {
-                "name": "n8n",
-                "image": "docker.n8n.io/n8nio/n8n:latest",
-                "ports": {
-                    "5678/tcp": settings.N8N_PORT
-                },
-                "volumes": {
-                    str(settings.n8n_path): {"bind": "/home/node/.n8n", "mode": "rw"}
-                },
-                "environment": {
-                    "N8N_ENCRYPTION_KEY": "offline_ai_stack_secure_key_1337",
-                    "N8N_DIAGNOSTICS_ENABLED": "false",
-                    "N8N_METRICS_ENABLED": "false"
-                },
-                "extra_hosts": {"host.docker.internal": "host-gateway"}
-            }
-        ]
+            "volumes": {
+                str(settings.n8n_path): {"bind": "/home/node/.n8n", "mode": "rw"}
+            },
+            "environment": {
+                "N8N_ENCRYPTION_KEY": "offline_ai_stack_secure_key_1337",
+                "N8N_DIAGNOSTICS_ENABLED": "false",
+                "N8N_METRICS_ENABLED": "false"
+            },
+            "extra_hosts": {"host.docker.internal": "host-gateway"}
+        })
+        
+        return services
 
     def pull_image_with_progress(self, image_name: str) -> None:
         """Pulls an image from registry, displaying progress in the CLI console."""

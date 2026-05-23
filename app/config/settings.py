@@ -38,6 +38,7 @@ class AppSettings(BaseSettings):
     OPENWEBUI_PORT: int = Field(default=3000, env="OPENWEBUI_PORT")
     N8N_PORT: int = Field(default=5678, env="N8N_PORT")
     XTTS_PORT: int = Field(default=8020, env="XTTS_PORT")
+    ENABLE_TTS: bool = Field(default=True, env="ENABLE_TTS")
 
     # Storage paths
     DATA_DIR: str = Field(default="./data", env="DATA_DIR")

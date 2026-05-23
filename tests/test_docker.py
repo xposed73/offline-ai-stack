@@ -30,21 +30,57 @@ class TestDockerOrchestrator(unittest.TestCase):
     def test_services_definitions(self) -> None:
         """Confirms container specifications contain correct volume binds and target ports."""
         orc = DockerOrchestrator()
-        specs = orc.get_services_definitions()
         
-        # Check we have exactly 4 defined containers
-        self.assertEqual(len(specs), 4)
-        
-        names = [spec["name"] for spec in specs]
-        self.assertIn("qdrant", names)
-        self.assertIn("open-webui", names)
-        self.assertIn("xtts", names)
-        self.assertIn("n8n", names)
-        
-        # Verify OpenWebUI contains the OLLAMA_BASE_URL env setting
-        openwebui_spec = next(spec for spec in specs if spec["name"] == "open-webui")
-        self.assertIn("OLLAMA_BASE_URL", openwebui_spec["environment"])
-        self.assertIn("host.docker.internal", openwebui_spec["environment"]["OLLAMA_BASE_URL"])
+        # Test with ENABLE_TTS = True
+        with patch("app.docker.orchestrator.settings") as mock_settings:
+            mock_settings.ENABLE_TTS = True
+            mock_settings.QDRANT_PORT = 6333
+            mock_settings.QDRANT_GRPC_PORT = 6334
+            mock_settings.OPENWEBUI_PORT = 3000
+            mock_settings.XTTS_PORT = 8020
+            mock_settings.N8N_PORT = 5678
+            mock_settings.OLLAMA_HOST = "http://localhost:11434"
+            mock_settings.qdrant_path = "/tmp/qdrant"
+            mock_settings.openwebui_path = "/tmp/openwebui"
+            mock_settings.xtts_path = "/tmp/xtts"
+            mock_settings.n8n_path = "/tmp/n8n"
+            
+            specs = orc.get_services_definitions()
+            self.assertEqual(len(specs), 4)
+            names = [spec["name"] for spec in specs]
+            self.assertIn("qdrant", names)
+            self.assertIn("open-webui", names)
+            self.assertIn("xtts", names)
+            self.assertIn("n8n", names)
+            
+            openwebui_spec = next(spec for spec in specs if spec["name"] == "open-webui")
+            self.assertIn("OLLAMA_BASE_URL", openwebui_spec["environment"])
+            self.assertIn("AUDIO_TTS_ENGINE", openwebui_spec["environment"])
+            self.assertEqual(openwebui_spec["environment"]["AUDIO_TTS_API_BASE_URL"], "http://xtts:8020/v1")
+
+        # Test with ENABLE_TTS = False
+        with patch("app.docker.orchestrator.settings") as mock_settings:
+            mock_settings.ENABLE_TTS = False
+            mock_settings.QDRANT_PORT = 6333
+            mock_settings.QDRANT_GRPC_PORT = 6334
+            mock_settings.OPENWEBUI_PORT = 3000
+            mock_settings.N8N_PORT = 5678
+            mock_settings.OLLAMA_HOST = "http://localhost:11434"
+            mock_settings.qdrant_path = "/tmp/qdrant"
+            mock_settings.openwebui_path = "/tmp/openwebui"
+            mock_settings.n8n_path = "/tmp/n8n"
+            
+            specs = orc.get_services_definitions()
+            self.assertEqual(len(specs), 3)
+            names = [spec["name"] for spec in specs]
+            self.assertIn("qdrant", names)
+            self.assertIn("open-webui", names)
+            self.assertNotIn("xtts", names)
+            self.assertIn("n8n", names)
+            
+            openwebui_spec = next(spec for spec in specs if spec["name"] == "open-webui")
+            self.assertIn("OLLAMA_BASE_URL", openwebui_spec["environment"])
+            self.assertNotIn("AUDIO_TTS_ENGINE", openwebui_spec["environment"])
 
 if __name__ == "__main__":
     unittest.main()

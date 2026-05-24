@@ -185,6 +185,16 @@ class DockerOrchestrator:
         # If it's the Kokoro image and the cloned source folder exists, build it locally
         if image_name == settings.KOKORO_IMAGE and Path("Kokoro-FastAPI").exists():
             logger.info(f"Image '{image_name}' not found locally. Building from local Kokoro-FastAPI source...")
+            build_path = "Kokoro-FastAPI"
+            dockerfile = "docker/cpu/Dockerfile.optimized"
+        elif image_name == "kokoro-german:latest" and Path("app/docker/kokoro_german/Dockerfile").exists():
+            logger.info(f"Image '{image_name}' not found locally. Building custom German Kokoro image...")
+            build_path = "app/docker/kokoro_german"
+            dockerfile = "Dockerfile"
+        else:
+            build_path = None
+
+        if build_path:
             try:
                 with Progress(
                     SpinnerColumn(),
@@ -193,8 +203,8 @@ class DockerOrchestrator:
                 ) as progress:
                     task = progress.add_task(f"Building {image_name} from source...", total=None)
                     for log in self.client.api.build(
-                        path="Kokoro-FastAPI",
-                        dockerfile="docker/cpu/Dockerfile.optimized",
+                        path=build_path,
+                        dockerfile=dockerfile,
                         tag=image_name,
                         rm=True,
                         decode=True

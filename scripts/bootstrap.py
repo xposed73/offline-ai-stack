@@ -118,10 +118,24 @@ def clone_and_build_kokoro(console):
     app_language = env_config.get("APP_LANGUAGE", "en").lower()
 
     if app_language == "de":
-        console.print("[bold yellow][6/6] Setting up Kokoro-German (TTS)...[/bold yellow]")
-        image_name = "kokoro-german:latest"
-        build_path = "app/docker/kokoro_german"
-        dockerfile = "Dockerfile"
+        console.print("[bold yellow][6/6] Setting up Kokoro-German ONNX (TTS)...[/bold yellow]")
+        
+        onnx_dir = Path("app/docker/kokoro_german_onnx")
+        if not onnx_dir.exists():
+            console.print("[blue]  -> Cloning Godelaune Kokoro ONNX repository...[/blue]")
+            res = subprocess.run(["git", "clone", "https://github.com/Godelaune/Kokoro-82M-ONNX-German-Martin.git", "app/docker/kokoro_german_onnx"], capture_output=True, text=True)
+            if res.returncode != 0:
+                console.print(f"[bold red]  [Error] Failed to clone repository: {res.stderr}[/bold red]")
+                return
+            console.print("[bold green]  -> Repository cloned successfully.[/bold green]")
+        
+        # Download ONNX models
+        console.print("[blue]  -> Downloading public ONNX weights...[/blue]")
+        subprocess.run(["sh", "scripts/download-model-files.sh"], cwd="app/docker/kokoro_german_onnx", check=True)
+            
+        image_name = "kokoro-german-onnx:latest"
+        build_path = "app/docker/kokoro_german_onnx"
+        dockerfile = "onnx-docker/Dockerfile"
     else:
         console.print("[bold yellow][6/6] Setting up Kokoro-FastAPI (TTS)...[/bold yellow]")
         
@@ -158,12 +172,17 @@ def clone_and_build_kokoro(console):
                 transient=True
             ) as progress:
                 task = progress.add_task(f"Building {image_name} from source...", total=None)
+                
+                # Fetch HF_TOKEN from environment if available
+                hf_token = os.environ.get("HF_TOKEN") or env_config.get("HF_TOKEN", "")
+                
                 for log in client.api.build(
                     path=build_path,
                     dockerfile=dockerfile,
                     tag=image_name,
                     rm=True,
-                    decode=True
+                    decode=True,
+                    buildargs={"HF_TOKEN": hf_token}
                 ):
                     if "stream" in log:
                         log_msg = log["stream"].strip()

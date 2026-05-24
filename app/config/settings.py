@@ -38,7 +38,9 @@ class AppSettings(BaseSettings):
     OPENWEBUI_PORT: int = Field(default=3000, env="OPENWEBUI_PORT")
     N8N_PORT: int = Field(default=5678, env="N8N_PORT")
     KOKORO_PORT: int = Field(default=8880, env="KOKORO_PORT")
-    KOKORO_IMAGE: str = Field(default="ghcr.io/remsky/kokoro-fastapi-cpu:latest", env="KOKORO_IMAGE")
+    KOKORO_IMAGE: str = Field(default="ghcr.io/remsky/kokoro-fastapi-cpu:v0.3.0", env="KOKORO_IMAGE")
+    KOKORO_VOICE: str = Field(default="af_sky", env="KOKORO_VOICE")
+    KOKORO_MODEL: str = Field(default="kokoro", env="KOKORO_MODEL")
     ENABLE_TTS: bool = Field(default=True, env="ENABLE_TTS")
 
     # Storage paths

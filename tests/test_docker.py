@@ -39,6 +39,8 @@ class TestDockerOrchestrator(unittest.TestCase):
             mock_settings.OPENWEBUI_PORT = 3000
             mock_settings.KOKORO_PORT = 8880
             mock_settings.KOKORO_IMAGE = "ghcr.io/remsky/kokoro-fastapi-gpu:latest"
+            mock_settings.KOKORO_VOICE = "af_sky"
+            mock_settings.KOKORO_MODEL = "kokoro"
             mock_settings.N8N_PORT = 5678
             mock_settings.OLLAMA_HOST = "http://localhost:11434"
             mock_settings.qdrant_path = "/tmp/qdrant"
@@ -57,7 +59,9 @@ class TestDockerOrchestrator(unittest.TestCase):
             openwebui_spec = next(spec for spec in specs if spec["name"] == "open-webui")
             self.assertIn("OLLAMA_BASE_URL", openwebui_spec["environment"])
             self.assertIn("AUDIO_TTS_ENGINE", openwebui_spec["environment"])
-            self.assertEqual(openwebui_spec["environment"]["AUDIO_TTS_API_BASE_URL"], "http://kokoro:8880/v1")
+            self.assertEqual(openwebui_spec["environment"]["AUDIO_TTS_OPENAI_API_BASE_URL"], "http://kokoro:8880/v1")
+            self.assertEqual(openwebui_spec["environment"]["AUDIO_TTS_VOICE"], "af_sky")
+            self.assertEqual(openwebui_spec["environment"]["AUDIO_TTS_MODEL"], "kokoro")
 
         # Test with ENABLE_TTS = False
         with patch("app.docker.orchestrator.settings") as mock_settings:

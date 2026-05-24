@@ -31,34 +31,66 @@ class SystemReport(BaseModel):
     requirements_met: bool
     warnings: list[str] = Field(default_factory=list)
 
-def detect_nvidia_gpu() -> GPUInfo:
-    """Detects NVIDIA GPU details using nvidia-smi command line query."""
+def detect_gpu() -> GPUInfo:
+    """Detects GPU details. Supports NVIDIA (via nvidia-smi) and Apple Silicon/macOS graphics."""
+    # 1. Try NVIDIA GPU (Windows/Linux)
     try:
         # Query: name, memory.total, driver_version
         cmd = ["nvidia-smi", "--query-gpu=name,memory.total,driver_version", "--format=csv,noheader,nounits"]
         result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=True)
         
         output = result.stdout.strip()
-        if not output:
-            return GPUInfo(detected=False)
+        if output:
+            # Parse output line (handles multi-GPU by taking the first one for simplicity)
+            lines = output.split("\n")
+            first_gpu = lines[0].split(",")
             
-        # Parse output line (handles multi-GPU by taking the first one for simplicity)
-        lines = output.split("\n")
-        first_gpu = lines[0].split(",")
-        
-        name = first_gpu[0].strip()
-        vram_mb = int(first_gpu[1].strip())
-        driver = first_gpu[2].strip()
-        
-        return GPUInfo(
-            detected=True,
-            name=name,
-            vram_mb=vram_mb,
-            driver_version=driver
-        )
+            name = first_gpu[0].strip()
+            vram_mb = int(first_gpu[1].strip())
+            driver = first_gpu[2].strip()
+            
+            return GPUInfo(
+                detected=True,
+                name=name,
+                vram_mb=vram_mb,
+                driver_version=driver
+            )
     except (subprocess.SubprocessError, FileNotFoundError, IndexError, ValueError):
-        # nvidia-smi not available or failed to execute
-        return GPUInfo(detected=False)
+        pass
+
+    # 2. Try macOS (Darwin) GPU detection
+    if platform.system() == "Darwin":
+        try:
+            # Query system_profiler for Displays/Graphics info
+            result = subprocess.run(["system_profiler", "SPDisplaysDataType"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=True)
+            output = result.stdout
+            
+            # Find Chipset Model
+            chipset = None
+            for line in output.split("\n"):
+                if "Chipset Model:" in line:
+                    chipset = line.split(":", 1)[1].strip()
+                    break
+            
+            if chipset:
+                # On Apple Silicon, memory is Unified. We can get system RAM size for info.
+                is_apple_silicon = "Apple" in chipset or platform.machine() == "arm64"
+                vram_mb = None
+                if is_apple_silicon:
+                    # Let's get system memory and report it as unified memory in MB
+                    ram_bytes = psutil.virtual_memory().total
+                    vram_mb = int(ram_bytes / (1024 * 1024)) # MB of unified memory
+                
+                return GPUInfo(
+                    detected=True,
+                    name=chipset,
+                    vram_mb=vram_mb,
+                    driver_version="Metal Support"
+                )
+        except (subprocess.SubprocessError, FileNotFoundError, IndexError, ValueError):
+            pass
+
+    return GPUInfo(detected=False)
 
 def verify_docker() -> Tuple[bool, bool]:
     """Verifies if Docker is installed and running on the host system."""
@@ -98,7 +130,7 @@ def generate_system_report() -> SystemReport:
     total, used, free = shutil.disk_usage(settings.data_path.parent)
     disk_free_gb = round(free / (1024 ** 3), 2)
     
-    gpu = detect_nvidia_gpu()
+    gpu = detect_gpu()
     docker_installed, docker_running = verify_docker()
     ollama_running = verify_ollama()
     
@@ -120,9 +152,15 @@ def generate_system_report() -> SystemReport:
         warnings.append(f"Low free disk space: {disk_free_gb}GB available. At least 20GB of free space is needed for images and models.")
         
     if not gpu.detected:
-        warnings.append("No NVIDIA GPU was detected. Inference will run strictly on CPU, which will be significantly slower.")
+        if os_name == "Darwin":
+            warnings.append("No Apple Silicon or supported GPU detected. Ollama will fall back to CPU, which will be significantly slower.")
+        else:
+            warnings.append("No NVIDIA GPU was detected. Inference will run strictly on CPU, which will be significantly slower.")
     elif gpu.vram_mb and gpu.vram_mb < 6000:
-        warnings.append(f"Low GPU VRAM detected ({gpu.vram_mb} MB). Recommend at least 6GB (6144 MB) of VRAM for comfortable local LLM running.")
+        if os_name == "Darwin":
+            warnings.append(f"Low unified system memory detected ({ram_gb} GB). Recommend at least 16GB of Unified Memory for comfortable local running.")
+        else:
+            warnings.append(f"Low GPU VRAM detected ({gpu.vram_mb} MB). Recommend at least 6GB (6144 MB) of VRAM for comfortable local LLM running.")
         
     if not docker_installed:
         requirements_met = False

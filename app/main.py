@@ -243,7 +243,7 @@ def cli_system_check() -> None:
     table.add_column("Status", style="bold")
     
     # OS
-    table.add_row("Operating System", f"{report.os_name} ({report.os_version})", "[green]OK[/green]" if report.os_name in ["Windows", "Linux"] else "[yellow]Warn[/yellow]")
+    table.add_row("Operating System", f"{report.os_name} ({report.os_version})", "[green]OK[/green]" if report.os_name in ["Windows", "Linux", "Darwin"] else "[yellow]Warn[/yellow]")
     # CPU
     cpu_status = "[green]OK[/green]" if report.cpu_count >= 4 else "[yellow]Warn[/yellow]"
     table.add_row("CPU Cores", f"{report.cpu_count} logical cores", cpu_status)
@@ -263,12 +263,18 @@ def cli_system_check() -> None:
     gpu_table.add_column("Details", style="white")
     
     if report.gpu.detected:
-        gpu_table.add_row("NVIDIA GPU Found", "[green]Yes[/green]")
-        gpu_table.add_row("Device Name", str(report.gpu.name))
-        gpu_table.add_row("Dedicated VRAM", f"{report.gpu.vram_mb} MB")
-        gpu_table.add_row("Driver Version", str(report.gpu.driver_version))
+        if "Metal" in str(report.gpu.driver_version):
+            gpu_table.add_row("Apple GPU Found", "[green]Yes[/green]")
+            gpu_table.add_row("Device Name", str(report.gpu.name))
+            gpu_table.add_row("Unified Memory", f"{report.gpu.vram_mb} MB" if report.gpu.vram_mb else "N/A")
+            gpu_table.add_row("Acceleration API", "Metal")
+        else:
+            gpu_table.add_row("NVIDIA GPU Found", "[green]Yes[/green]")
+            gpu_table.add_row("Device Name", str(report.gpu.name))
+            gpu_table.add_row("Dedicated VRAM", f"{report.gpu.vram_mb} MB")
+            gpu_table.add_row("Driver Version", str(report.gpu.driver_version))
     else:
-        gpu_table.add_row("NVIDIA GPU Found", "[red]No[/red]")
+        gpu_table.add_row("GPU Found", "[red]No[/red]")
         gpu_table.add_row("Note", "CPU-only fallback mode. Large models will feel sluggish.")
         
     console.print(gpu_table)

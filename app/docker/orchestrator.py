@@ -1,4 +1,5 @@
 import time
+from pathlib import Path
 from typing import Dict, Any, List, Optional
 from pydantic import BaseModel
 import docker
@@ -92,10 +93,10 @@ class DockerOrchestrator:
         if settings.ENABLE_TTS:
             webui_env.update({
                 "AUDIO_TTS_ENGINE": "openai",
-                "AUDIO_TTS_API_BASE_URL": "http://kokoro:8880/v1",
-                "AUDIO_TTS_API_KEY": "dummy",
-                "AUDIO_TTS_MODEL": "kokoro",
-                "AUDIO_TTS_VOICE": "de_female_1"
+                "AUDIO_TTS_OPENAI_API_BASE_URL": "http://kokoro:8880/v1",
+                "AUDIO_TTS_OPENAI_API_KEY": "not-needed",
+                "AUDIO_TTS_MODEL": settings.KOKORO_MODEL,
+                "AUDIO_TTS_VOICE": settings.KOKORO_VOICE
             })
 
         services.append({
@@ -150,7 +151,7 @@ class DockerOrchestrator:
         return services
 
     def pull_image_with_progress(self, image_name: str) -> None:
-        """Pulls an image from registry, displaying progress in the CLI console."""
+        """Pulls an image from registry (or builds from local source if available), displaying progress in the CLI console."""
         if not self.is_available():
             raise RuntimeError("Docker is unavailable.")
 
@@ -161,6 +162,32 @@ class DockerOrchestrator:
             return
         except ImageNotFound:
             pass
+
+        # If it's the Kokoro image and the cloned source folder exists, build it locally
+        if image_name == settings.KOKORO_IMAGE and Path("Kokoro-FastAPI").exists():
+            logger.info(f"Image '{image_name}' not found locally. Building from local Kokoro-FastAPI source...")
+            try:
+                with Progress(
+                    SpinnerColumn(),
+                    TextColumn("[bold blue]{task.description}"),
+                    transient=True
+                ) as progress:
+                    task = progress.add_task(f"Building {image_name} from source...", total=None)
+                    for log in self.client.api.build(
+                        path="Kokoro-FastAPI",
+                        dockerfile="docker/cpu/Dockerfile.optimized",
+                        tag=image_name,
+                        rm=True,
+                        decode=True
+                    ):
+                        if "stream" in log:
+                            log_msg = log["stream"].strip()
+                            if log_msg:
+                                progress.update(task, description=f"Building: {log_msg}")
+                logger.info(f"Successfully built and tagged '{image_name}' from local source.")
+                return
+            except Exception as e:
+                logger.warning(f"Failed to build image {image_name} from local source: {e}. Falling back to pull...")
 
         logger.info(f"Image '{image_name}' not found locally. Starting download...")
         

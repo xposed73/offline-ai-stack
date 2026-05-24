@@ -31,6 +31,9 @@ if ! .venv/bin/offline-ai stop; then
     exit 1
 fi
 
+echo "Stopping local FastAPI service..."
+pkill -f ".venv/bin/offline-ai serve" || true
+
 echo ""
 echo "=========================================================="
 echo "         ALL SERVICES SHUT DOWN SUCCESSFULLY"

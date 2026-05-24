@@ -85,6 +85,30 @@ class DockerOrchestrator:
             }
         ]
 
+        # Determine Kokoro Image
+        kokoro_image = settings.KOKORO_IMAGE
+        if getattr(settings, "APP_LANGUAGE", "en").lower() == "de":
+            kokoro_image = "kokoro-german:latest"
+            
+        if settings.ENABLE_TTS:
+            kokoro_spec = {
+                "name": "kokoro",
+                "image": kokoro_image,
+                "ports": {
+                    "8880/tcp": settings.KOKORO_PORT
+                },
+                "volumes": {
+                    str(settings.kokoro_path): {"bind": "/app/voices", "mode": "rw"}
+                },
+                "environment": {},
+                "extra_hosts": {"host.docker.internal": "host-gateway"}
+            }
+            if "gpu" in kokoro_image.lower():
+                kokoro_spec["device_requests"] = [
+                    docker.types.DeviceRequest(count=-1, capabilities=[['gpu']])
+                ]
+            services.append(kokoro_spec)
+
         # Configure OpenWebUI environment settings (with optional TTS parameters)
         webui_env = {
             "OLLAMA_BASE_URL": ollama_url,
@@ -98,8 +122,10 @@ class DockerOrchestrator:
             
         if settings.ENABLE_TTS:
             tts_voice = settings.KOKORO_VOICE
+            # Kokoro v0.3.0 does not ship with a native German voice out-of-the-box in this image.
+            # Using the default voice (e.g. af_bella) to prevent 400 Bad Request API crashes.
             if getattr(settings, "APP_LANGUAGE", "en").lower() == "de" and tts_voice.startswith(("af_", "am_", "bf_", "bm_")):
-                tts_voice = "de_female_1"  # Override with a german voice if using default english voices
+                tts_voice = "df_eva"  # Use the German voice from Thomcle fork
                 
             webui_env.update({
                 "AUDIO_TTS_ENGINE": "openai",
@@ -122,24 +148,7 @@ class DockerOrchestrator:
             "extra_hosts": {"host.docker.internal": "host-gateway"}
         })
 
-        if settings.ENABLE_TTS:
-            kokoro_spec = {
-                "name": "kokoro",
-                "image": settings.KOKORO_IMAGE,
-                "ports": {
-                    "8880/tcp": settings.KOKORO_PORT
-                },
-                "volumes": {
-                    str(settings.kokoro_path): {"bind": "/app/voices", "mode": "rw"}
-                },
-                "environment": {},
-                "extra_hosts": {"host.docker.internal": "host-gateway"}
-            }
-            if "gpu" in settings.KOKORO_IMAGE.lower():
-                kokoro_spec["device_requests"] = [
-                    docker.types.DeviceRequest(count=-1, capabilities=[['gpu']])
-                ]
-            services.append(kokoro_spec)
+
 
         services.append({
             "name": "n8n",

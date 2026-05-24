@@ -112,19 +112,33 @@ def clone_and_build_kokoro(console):
     from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn
     from rich.panel import Panel
     import docker
-    
-    console.print("[bold yellow][6/6] Setting up Kokoro-FastAPI (TTS)...[/bold yellow]")
-    
-    kokoro_dir = Path("Kokoro-FastAPI")
-    if not kokoro_dir.exists():
-        console.print("[blue]  -> Cloning Kokoro-FastAPI repository...[/blue]")
-        res = subprocess.run(["git", "clone", "https://github.com/remsky/Kokoro-FastAPI.git"], capture_output=True, text=True)
-        if res.returncode != 0:
-            console.print(f"[bold red]  [Error] Failed to clone repository: {res.stderr}[/bold red]")
-            return
-        console.print("[bold green]  -> Repository cloned successfully.[/bold green]")
+    import dotenv
+
+    env_config = dotenv.dotenv_values(".env")
+    app_language = env_config.get("APP_LANGUAGE", "en").lower()
+
+    if app_language == "de":
+        console.print("[bold yellow][6/6] Setting up Kokoro-German (TTS)...[/bold yellow]")
+        image_name = "kokoro-german:latest"
+        build_path = "app/docker/kokoro_german"
+        dockerfile = "Dockerfile"
     else:
-        console.print("[dim]  -> Kokoro-FastAPI repository already exists.[/dim]")
+        console.print("[bold yellow][6/6] Setting up Kokoro-FastAPI (TTS)...[/bold yellow]")
+        
+        kokoro_dir = Path("Kokoro-FastAPI")
+        if not kokoro_dir.exists():
+            console.print("[blue]  -> Cloning Kokoro-FastAPI repository...[/blue]")
+            res = subprocess.run(["git", "clone", "https://github.com/remsky/Kokoro-FastAPI.git"], capture_output=True, text=True)
+            if res.returncode != 0:
+                console.print(f"[bold red]  [Error] Failed to clone repository: {res.stderr}[/bold red]")
+                return
+            console.print("[bold green]  -> Repository cloned successfully.[/bold green]")
+        else:
+            console.print("[dim]  -> Kokoro-FastAPI repository already exists.[/dim]")
+            
+        image_name = "ghcr.io/remsky/kokoro-fastapi-cpu:v0.3.0"
+        build_path = "Kokoro-FastAPI"
+        dockerfile = "docker/cpu/Dockerfile.optimized"
 
     try:
         client = docker.from_env()
@@ -132,12 +146,11 @@ def clone_and_build_kokoro(console):
         console.print(f"[bold red]  [Error] Docker is not available. Ensure Docker Desktop is running: {e}[/bold red]")
         return
 
-    image_name = "ghcr.io/remsky/kokoro-fastapi-cpu:v0.3.0"
     try:
         client.images.get(image_name)
         console.print(f"[dim]  -> Image '{image_name}' is already cached locally. Skipping build.[/dim]")
     except docker.errors.ImageNotFound:
-        console.print(f"[blue]  -> Building Docker container '{image_name}'...[/blue]")
+        console.print(f"[blue]  -> Building Docker container '{image_name}' (this may take a while)...[/blue]")
         try:
             with Progress(
                 SpinnerColumn(),
@@ -146,8 +159,8 @@ def clone_and_build_kokoro(console):
             ) as progress:
                 task = progress.add_task(f"Building {image_name} from source...", total=None)
                 for log in client.api.build(
-                    path="Kokoro-FastAPI",
-                    dockerfile="docker/cpu/Dockerfile.optimized",
+                    path=build_path,
+                    dockerfile=dockerfile,
                     tag=image_name,
                     rm=True,
                     decode=True

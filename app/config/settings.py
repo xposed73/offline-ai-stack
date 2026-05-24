@@ -35,21 +35,15 @@ class AppSettings(BaseSettings):
     QDRANT_GRPC_PORT: int = Field(default=6334, env="QDRANT_GRPC_PORT")
     QDRANT_COLLECTION_NAME: str = Field(default="rag_documents", env="QDRANT_COLLECTION_NAME")
 
-    # OpenWebUI, n8n, & XTTS
+    # OpenWebUI & n8n
     OPENWEBUI_PORT: int = Field(default=3000, env="OPENWEBUI_PORT")
     N8N_PORT: int = Field(default=5678, env="N8N_PORT")
-    KOKORO_PORT: int = Field(default=8880, env="KOKORO_PORT")
-    KOKORO_IMAGE: str = Field(default="ghcr.io/remsky/kokoro-fastapi-cpu:v0.3.0", env="KOKORO_IMAGE")
-    KOKORO_VOICE: str = Field(default="af_sky", env="KOKORO_VOICE")
-    KOKORO_MODEL: str = Field(default="kokoro", env="KOKORO_MODEL")
-    ENABLE_TTS: bool = Field(default=True, env="ENABLE_TTS")
 
     # Storage paths
     DATA_DIR: str = Field(default="./data", env="DATA_DIR")
     QDRANT_STORAGE_DIR: str = Field(default="./data/qdrant", env="QDRANT_STORAGE_DIR")
     OPENWEBUI_STORAGE_DIR: str = Field(default="./data/openwebui", env="OPENWEBUI_STORAGE_DIR")
     N8N_STORAGE_DIR: str = Field(default="./data/n8n", env="N8N_STORAGE_DIR")
-    KOKORO_STORAGE_DIR: str = Field(default="./data/kokoro", env="KOKORO_STORAGE_DIR")
     INGESTION_DIR: str = Field(default="./data/ingest", env="INGESTION_DIR")
 
     @property
@@ -69,10 +63,6 @@ class AppSettings(BaseSettings):
         return Path(self.N8N_STORAGE_DIR).resolve()
 
     @property
-    def kokoro_path(self) -> Path:
-        return Path(self.KOKORO_STORAGE_DIR).resolve()
-
-    @property
     def ingest_path(self) -> Path:
         return Path(self.INGESTION_DIR).resolve()
 
@@ -82,7 +72,6 @@ class AppSettings(BaseSettings):
         self.qdrant_path.mkdir(parents=True, exist_ok=True)
         self.openwebui_path.mkdir(parents=True, exist_ok=True)
         self.n8n_path.mkdir(parents=True, exist_ok=True)
-        self.kokoro_path.mkdir(parents=True, exist_ok=True)
         self.ingest_path.mkdir(parents=True, exist_ok=True)
 
 # Instantiate settings

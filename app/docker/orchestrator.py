@@ -66,7 +66,7 @@ class DockerOrchestrator:
         return url
 
     def get_services_definitions(self) -> List[Dict[str, Any]]:
-        """Defines Qdrant, OpenWebUI, XTTS, and n8n container specs."""
+        """Defines Qdrant, OpenWebUI, and n8n container specs."""
         ollama_url = self._get_ollama_docker_url()
         
         services = [
@@ -85,52 +85,7 @@ class DockerOrchestrator:
             }
         ]
 
-        # Determine Kokoro Image
-        kokoro_image = settings.KOKORO_IMAGE
-        if getattr(settings, "APP_LANGUAGE", "en").lower() == "de":
-            kokoro_image = "kokoro-german-onnx:latest"
-            
-        if settings.ENABLE_TTS:
-            kokoro_spec = {
-                "name": "kokoro",
-                "image": kokoro_image,
-                "ports": {
-                    "8881/tcp" if "onnx" in kokoro_image else "8880/tcp": settings.KOKORO_PORT
-                },
-                "volumes": {
-                    str(settings.kokoro_path): {"bind": "/app/voices", "mode": "rw"}
-                },
-                "environment": {},
-                "extra_hosts": {"host.docker.internal": "host-gateway"}
-            }
-            if "onnx" in kokoro_image:
-                # Add Godelaune ONNX performance environment variables
-                kokoro_spec["environment"] = {
-                    "KOKORO_ONNX_THREADS": "2",
-                    "KOKORO_ONNX_INTRA_OP_THREADS": "2",
-                    "KOKORO_ONNX_INTER_OP_THREADS": "1",
-                    "KOKORO_ONNX_EXECUTION_MODE": "sequential",
-                    "KOKORO_ONNX_GRAPH_OPT": "all",
-                    "KOKORO_ONNX_SPEED": "1.125",
-                    "KOKORO_ONNX_TRIM": "true",
-                    "KOKORO_ONNX_VOICE": "martin",
-                    "KOKORO_ONNX_LANG": "de",
-                    "OMP_NUM_THREADS": "2",
-                    "OPENBLAS_NUM_THREADS": "2",
-                    "MKL_NUM_THREADS": "2",
-                    "NUMEXPR_NUM_THREADS": "2",
-                    "OMP_WAIT_POLICY": "PASSIVE",
-                    "KOKORO_PAUSE_DURATION": "0.25",
-                    "KOKORO_WORKERS": "2",
-                    "KOKORO_ONNX_ALLOW_SPINNING": "0"
-                }
-            if "gpu" in kokoro_image.lower():
-                kokoro_spec["device_requests"] = [
-                    docker.types.DeviceRequest(count=-1, capabilities=[['gpu']])
-                ]
-            services.append(kokoro_spec)
-
-        # Configure OpenWebUI environment settings (with optional TTS parameters)
+        # Configure OpenWebUI environment settings
         webui_env = {
             "OLLAMA_BASE_URL": ollama_url,
             "WEBUI_AUTH": "false",
@@ -141,21 +96,6 @@ class DockerOrchestrator:
             webui_env["DEFAULT_SYSTEM_PROMPT"] = "Bitte antworte immer auf Deutsch und formuliere die Sätze präzise."
             webui_env["DEFAULT_LOCALE"] = "de-DE"
             
-        if settings.ENABLE_TTS:
-            tts_voice = settings.KOKORO_VOICE
-            # Kokoro v0.3.0 does not ship with a native German voice out-of-the-box in this image.
-            # Using the default voice (e.g. af_bella) to prevent 400 Bad Request API crashes.
-            if getattr(settings, "APP_LANGUAGE", "en").lower() == "de" and tts_voice.startswith(("af_", "am_", "bf_", "bm_", "df_")):
-                tts_voice = "martin"  # Use the German ONNX voice
-                
-            webui_env.update({
-                "AUDIO_TTS_ENGINE": "openai",
-                "AUDIO_TTS_OPENAI_API_BASE_URL": "http://kokoro:8880/v1",
-                "AUDIO_TTS_OPENAI_API_KEY": "not-needed",
-                "AUDIO_TTS_MODEL": settings.KOKORO_MODEL,
-                "AUDIO_TTS_VOICE": tts_voice
-            })
-
         services.append({
             "name": "open-webui",
             "image": "ghcr.io/open-webui/open-webui:main",
@@ -202,42 +142,6 @@ class DockerOrchestrator:
             return
         except ImageNotFound:
             pass
-
-        # If it's the Kokoro image and the cloned source folder exists, build it locally
-        if image_name == settings.KOKORO_IMAGE and Path("Kokoro-FastAPI").exists():
-            logger.info(f"Image '{image_name}' not found locally. Building from local Kokoro-FastAPI source...")
-            build_path = "Kokoro-FastAPI"
-            dockerfile = "docker/cpu/Dockerfile.optimized"
-        elif image_name == "kokoro-german-onnx:latest" and Path("app/docker/kokoro_german_onnx/onnx-docker/Dockerfile").exists():
-            logger.info(f"Image '{image_name}' not found locally. Building custom German ONNX Kokoro image...")
-            build_path = "app/docker/kokoro_german_onnx"
-            dockerfile = "onnx-docker/Dockerfile"
-        else:
-            build_path = None
-
-        if build_path:
-            try:
-                with Progress(
-                    SpinnerColumn(),
-                    TextColumn("[bold blue]{task.description}"),
-                    transient=True
-                ) as progress:
-                    task = progress.add_task(f"Building {image_name} from source...", total=None)
-                    for log in self.client.api.build(
-                        path=build_path,
-                        dockerfile=dockerfile,
-                        tag=image_name,
-                        rm=True,
-                        decode=True
-                    ):
-                        if "stream" in log:
-                            log_msg = log["stream"].strip()
-                            if log_msg:
-                                progress.update(task, description=f"Building: {log_msg}")
-                logger.info(f"Successfully built and tagged '{image_name}' from local source.")
-                return
-            except Exception as e:
-                logger.warning(f"Failed to build image {image_name} from local source: {e}. Falling back to pull...")
 
         logger.info(f"Image '{image_name}' not found locally. Starting download...")
         
@@ -364,9 +268,6 @@ class DockerOrchestrator:
                 if "device_requests" in run_kwargs and ("gpu" in str(e).lower() or "device" in str(e).lower()):
                     logger.warning(f"Failed to start container '{name}' with GPU reservation. Retrying in CPU fallback mode. Error: {e}")
                     del run_kwargs["device_requests"]
-                    # If this is the kokoro container, switch image to CPU version
-                    if name == "kokoro":
-                        run_kwargs["image"] = "ghcr.io/remsky/kokoro-fastapi-cpu:latest"
                     self.client.containers.run(**run_kwargs)
                 else:
                     raise e

@@ -18,4 +18,3 @@ data/
 # IDE files
 .vscode/
 .idea/
-/Kokoro-FastAPI/

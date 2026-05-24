@@ -6,8 +6,8 @@ This script completely automates the installation, virtualenv creation,
 dependency resolution (via Astral uv), and local environment configuration.
 It uses a two-phase execution:
 1. Setup Python, uv, and dependencies (without rich).
-2. Re-executes itself inside the virtual environment to display rich output,
-   clone Kokoro-FastAPI, build its Docker container, and show the summary.
+2. Re-executes itself inside the virtual environment to display rich output
+   and show the summary.
 """
 
 import os
@@ -107,100 +107,15 @@ def phase_one():
         
     os.execv(venv_python, [venv_python, __file__, "--phase-two"])
 
-def clone_and_build_kokoro(console):
-    """Clones Kokoro-FastAPI and builds the docker container using the rich library."""
-    from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn
-    from rich.panel import Panel
-    import docker
-    import dotenv
-
-    env_config = dotenv.dotenv_values(".env")
-    app_language = env_config.get("APP_LANGUAGE", "en").lower()
-
-    if app_language == "de":
-        console.print("[bold yellow][6/6] Setting up Kokoro-German ONNX (TTS)...[/bold yellow]")
-        
-        onnx_dir = Path("app/docker/kokoro_german_onnx")
-        if not onnx_dir.exists():
-            console.print("[blue]  -> Cloning Godelaune Kokoro ONNX repository...[/blue]")
-            res = subprocess.run(["git", "clone", "https://github.com/Godelaune/Kokoro-82M-ONNX-German-Martin.git", "app/docker/kokoro_german_onnx"], capture_output=True, text=True)
-            if res.returncode != 0:
-                console.print(f"[bold red]  [Error] Failed to clone repository: {res.stderr}[/bold red]")
-                return
-            console.print("[bold green]  -> Repository cloned successfully.[/bold green]")
-        
-        # Download ONNX models
-        console.print("[blue]  -> Downloading public ONNX weights...[/blue]")
-        subprocess.run(["sh", "scripts/download-model-files.sh"], cwd="app/docker/kokoro_german_onnx", check=True)
-            
-        image_name = "kokoro-german-onnx:latest"
-        build_path = "app/docker/kokoro_german_onnx"
-        dockerfile = "onnx-docker/Dockerfile"
-    else:
-        console.print("[bold yellow][6/6] Setting up Kokoro-FastAPI (TTS)...[/bold yellow]")
-        
-        kokoro_dir = Path("Kokoro-FastAPI")
-        if not kokoro_dir.exists():
-            console.print("[blue]  -> Cloning Kokoro-FastAPI repository...[/blue]")
-            res = subprocess.run(["git", "clone", "https://github.com/remsky/Kokoro-FastAPI.git"], capture_output=True, text=True)
-            if res.returncode != 0:
-                console.print(f"[bold red]  [Error] Failed to clone repository: {res.stderr}[/bold red]")
-                return
-            console.print("[bold green]  -> Repository cloned successfully.[/bold green]")
-        else:
-            console.print("[dim]  -> Kokoro-FastAPI repository already exists.[/dim]")
-            
-        image_name = "ghcr.io/remsky/kokoro-fastapi-cpu:v0.3.0"
-        build_path = "Kokoro-FastAPI"
-        dockerfile = "docker/cpu/Dockerfile.optimized"
-
-    try:
-        client = docker.from_env()
-    except Exception as e:
-        console.print(f"[bold red]  [Error] Docker is not available. Ensure Docker Desktop is running: {e}[/bold red]")
-        return
-
-    try:
-        client.images.get(image_name)
-        console.print(f"[dim]  -> Image '{image_name}' is already cached locally. Skipping build.[/dim]")
-    except docker.errors.ImageNotFound:
-        console.print(f"[blue]  -> Building Docker container '{image_name}' (this may take a while)...[/blue]")
-        try:
-            with Progress(
-                SpinnerColumn(),
-                TextColumn("[bold blue]{task.description}"),
-                transient=True
-            ) as progress:
-                task = progress.add_task(f"Building {image_name} from source...", total=None)
-                
-                # Fetch HF_TOKEN from environment if available
-                hf_token = os.environ.get("HF_TOKEN") or env_config.get("HF_TOKEN", "")
-                
-                for log in client.api.build(
-                    path=build_path,
-                    dockerfile=dockerfile,
-                    tag=image_name,
-                    rm=True,
-                    decode=True,
-                    buildargs={"HF_TOKEN": hf_token}
-                ):
-                    if "stream" in log:
-                        log_msg = log["stream"].strip()
-                        if log_msg:
-                            progress.update(task, description=f"Building: {log_msg}")
-            console.print(f"[bold green]  -> Successfully built and tagged '{image_name}'![/bold green]")
-        except Exception as e:
-            console.print(f"[bold red]  [Error] Failed to build container: {e}[/bold red]")
-
 def phase_two():
-    """Phase 2: Use Rich to bootstrap the .env, build Kokoro, and show the final summary."""
+    """Phase 2: Use Rich to bootstrap the .env and show the final summary."""
     from rich.console import Console
     from rich.panel import Panel
     from rich.text import Text
     
     console = Console()
     
-    console.print("[bold yellow][5/6] Checking Configuration Environment Settings...[/bold yellow]")
+    console.print("[bold yellow][5/5] Checking Configuration Environment Settings...[/bold yellow]")
     env_path = Path(".env")
     env_example_path = Path(".env.example")
     
@@ -213,8 +128,6 @@ def phase_two():
     else:
         console.print("[dim]  -> Pre-existing configuration '.env' detected. Keeping unchanged.[/dim]")
         
-    clone_and_build_kokoro(console)
-    
     # Success Overview
     console.print()
     

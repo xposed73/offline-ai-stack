@@ -259,6 +259,19 @@ class DockerOrchestrator:
                     # Estimate progression roughly from output
                     if "Downloading" in status or "Extracting" in status:
                         progress.advance(task, 0.5)
+            except ImageNotFound as e:
+                logger.error(f"Image '{image_name}' not found in registry: {e}")
+                raise RuntimeError(
+                    f"Image '{image_name}' could not be found on the configured registry. "
+                    "If this is a private image ensure you have run 'docker login', or build the image locally (see project README). "
+                    "If this is the Kokoro German ONNX image, ensure APP_LANGUAGE='de' and the local build paths exist or adjust settings.KOKORO_IMAGE."
+                )
+            except APIError as e:
+                logger.error(f"Docker API error while pulling '{image_name}': {e}")
+                raise RuntimeError(
+                    f"Docker API error when pulling '{image_name}': {e}. "
+                    "This can indicate registry/auth issues or a network problem."
+                )
             except Exception as e:
                 logger.error(f"Failed to pull image {image_name}: {e}")
                 raise e
@@ -327,8 +340,13 @@ class DockerOrchestrator:
             name = spec["name"]
             image = spec["image"]
             
-            # Pull image
-            self.pull_image_with_progress(image)
+            # Pull image (skip service if pull fails)
+            try:
+                self.pull_image_with_progress(image)
+            except RuntimeError as e:
+                logger.warning(f"Skipping service '{name}' due to image pull failure: {e}")
+                # Do not attempt to run this container; continue with other services
+                continue
             
             # Stop & remove container if running to avoid conflicts
             try:

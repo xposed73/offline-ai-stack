@@ -16,7 +16,7 @@ class AppSettings(BaseSettings):
     )
 
     # FastAPI settings
-    APP_LANGUAGE: str = Field(default="en", env="APP_LANGUAGE")
+    APP_LANGUAGE: str = Field(default="de", env="APP_LANGUAGE")
     APP_HOST: str = Field(default="0.0.0.0", env="APP_HOST")
     APP_PORT: int = Field(default=8000, env="APP_PORT")
     DEBUG: bool = Field(default=True, env="DEBUG")
@@ -40,7 +40,7 @@ class AppSettings(BaseSettings):
     N8N_PORT: int = Field(default=5678, env="N8N_PORT")
     KOKORO_PORT: int = Field(default=8880, env="KOKORO_PORT")
     KOKORO_IMAGE: str = Field(default="ghcr.io/remsky/kokoro-fastapi-cpu:v0.3.0", env="KOKORO_IMAGE")
-    KOKORO_VOICE: str = Field(default="af_sky", env="KOKORO_VOICE")
+    KOKORO_VOICE: str = Field(default="martin", env="KOKORO_VOICE")
     KOKORO_MODEL: str = Field(default="kokoro", env="KOKORO_MODEL")
     ENABLE_TTS: bool = Field(default=True, env="ENABLE_TTS")
 

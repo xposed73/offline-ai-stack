@@ -20,8 +20,8 @@ echo "[1/3] Verifying host environment and dependencies..."
 echo "(First-time setup will automatically download 'uv' and python libraries)"
 echo ""
 
-# Execute Bash Bootstrap Script
-if ! ./scripts/bootstrap.sh; then
+# Execute Python Bootstrap Script
+if ! python3 ./scripts/bootstrap.py; then
     echo ""
     echo "[ERROR] Environment setup failed. Read warnings above."
     exit 1

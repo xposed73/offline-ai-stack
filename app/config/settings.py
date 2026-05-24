@@ -16,6 +16,7 @@ class AppSettings(BaseSettings):
     )
 
     # FastAPI settings
+    APP_LANGUAGE: str = Field(default="en", env="APP_LANGUAGE")
     APP_HOST: str = Field(default="0.0.0.0", env="APP_HOST")
     APP_PORT: int = Field(default=8000, env="APP_PORT")
     DEBUG: bool = Field(default=True, env="DEBUG")

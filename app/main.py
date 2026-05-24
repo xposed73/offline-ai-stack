@@ -463,7 +463,7 @@ def cli_query(query_str: str, german_mode: bool = False) -> None:
     console.print(f"[yellow]Retrieving context and formulating local RAG answer...[/yellow]")
     
     sys_prompt = None
-    if german_mode:
+    if german_mode or getattr(settings, "APP_LANGUAGE", "en").lower() == "de":
         sys_prompt = "Optimierung: Bitte antworte immer auf Deutsch und formuliere die Sätze präzise und professionell."
         
     try:

@@ -90,13 +90,23 @@ class DockerOrchestrator:
             "OLLAMA_BASE_URL": ollama_url,
             "WEBUI_AUTH": "false",
         }
+        
+        # Inject German language mode
+        if getattr(settings, "APP_LANGUAGE", "en").lower() == "de":
+            webui_env["DEFAULT_SYSTEM_PROMPT"] = "Bitte antworte immer auf Deutsch und formuliere die Sätze präzise."
+            webui_env["DEFAULT_LOCALE"] = "de-DE"
+            
         if settings.ENABLE_TTS:
+            tts_voice = settings.KOKORO_VOICE
+            if getattr(settings, "APP_LANGUAGE", "en").lower() == "de" and tts_voice.startswith(("af_", "am_", "bf_", "bm_")):
+                tts_voice = "de_female_1"  # Override with a german voice if using default english voices
+                
             webui_env.update({
                 "AUDIO_TTS_ENGINE": "openai",
                 "AUDIO_TTS_OPENAI_API_BASE_URL": "http://kokoro:8880/v1",
                 "AUDIO_TTS_OPENAI_API_KEY": "not-needed",
                 "AUDIO_TTS_MODEL": settings.KOKORO_MODEL,
-                "AUDIO_TTS_VOICE": settings.KOKORO_VOICE
+                "AUDIO_TTS_VOICE": tts_voice
             })
 
         services.append({

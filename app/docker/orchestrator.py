@@ -104,6 +104,10 @@ class DockerOrchestrator:
                 "extra_hosts": {"host.docker.internal": "host-gateway"}
             }
             if "onnx" in kokoro_image:
+                # Mount the German text rules script needed by the ONNX normalizer
+                rules_path = Path("app/docker/kokoro_german_onnx/german_text_rules.py").absolute()
+                kokoro_spec["volumes"][str(rules_path)] = {"bind": "/app/german_text_rules.py", "mode": "ro"}
+                
                 # Add Godelaune ONNX performance environment variables
                 kokoro_spec["environment"] = {
                     "KOKORO_ONNX_THREADS": "2",
@@ -130,6 +134,8 @@ class DockerOrchestrator:
                 ]
             services.append(kokoro_spec)
 
+        kokoro_internal_port = "8881" if "onnx" in kokoro_image.lower() else "8880"
+
         # Configure OpenWebUI environment settings (with optional TTS parameters)
         webui_env = {
             "OLLAMA_BASE_URL": ollama_url,
@@ -150,7 +156,7 @@ class DockerOrchestrator:
                 
             webui_env.update({
                 "AUDIO_TTS_ENGINE": "openai",
-                "AUDIO_TTS_OPENAI_API_BASE_URL": "http://kokoro:8880/v1",
+                "AUDIO_TTS_OPENAI_API_BASE_URL": f"http://kokoro:{kokoro_internal_port}/v1",
                 "AUDIO_TTS_OPENAI_API_KEY": "not-needed",
                 "AUDIO_TTS_MODEL": settings.KOKORO_MODEL,
                 "AUDIO_TTS_VOICE": tts_voice

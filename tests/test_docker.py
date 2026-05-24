@@ -30,10 +30,10 @@ class TestDockerOrchestrator(unittest.TestCase):
     def test_services_definitions(self) -> None:
         """Confirms container specifications contain correct volume binds and target ports."""
         orc = DockerOrchestrator()
-        
-        # Test with ENABLE_TTS = True
+
         with patch("app.docker.orchestrator.settings") as mock_settings:
             mock_settings.ENABLE_TTS = True
+            mock_settings.APP_LANGUAGE = "en"
             mock_settings.QDRANT_PORT = 6333
             mock_settings.QDRANT_GRPC_PORT = 6334
             mock_settings.OPENWEBUI_PORT = 3000
@@ -47,7 +47,7 @@ class TestDockerOrchestrator(unittest.TestCase):
             mock_settings.openwebui_path = "/tmp/openwebui"
             mock_settings.kokoro_path = "/tmp/kokoro"
             mock_settings.n8n_path = "/tmp/n8n"
-            
+
             specs = orc.get_services_definitions()
             self.assertEqual(len(specs), 4)
             names = [spec["name"] for spec in specs]
@@ -55,7 +55,7 @@ class TestDockerOrchestrator(unittest.TestCase):
             self.assertIn("open-webui", names)
             self.assertIn("kokoro", names)
             self.assertIn("n8n", names)
-            
+
             openwebui_spec = next(spec for spec in specs if spec["name"] == "open-webui")
             self.assertIn("OLLAMA_BASE_URL", openwebui_spec["environment"])
             self.assertIn("AUDIO_TTS_ENGINE", openwebui_spec["environment"])
@@ -63,9 +63,30 @@ class TestDockerOrchestrator(unittest.TestCase):
             self.assertEqual(openwebui_spec["environment"]["AUDIO_TTS_VOICE"], "af_sky")
             self.assertEqual(openwebui_spec["environment"]["AUDIO_TTS_MODEL"], "kokoro")
 
-        # Test with ENABLE_TTS = False
+        with patch("app.docker.orchestrator.settings") as mock_settings:
+            mock_settings.ENABLE_TTS = True
+            mock_settings.APP_LANGUAGE = "de"
+            mock_settings.QDRANT_PORT = 6333
+            mock_settings.QDRANT_GRPC_PORT = 6334
+            mock_settings.OPENWEBUI_PORT = 3000
+            mock_settings.KOKORO_PORT = 8880
+            mock_settings.KOKORO_IMAGE = "ghcr.io/remsky/kokoro-fastapi-cpu:v0.3.0"
+            mock_settings.KOKORO_VOICE = "af_sky"
+            mock_settings.KOKORO_MODEL = "kokoro"
+            mock_settings.N8N_PORT = 5678
+            mock_settings.OLLAMA_HOST = "http://localhost:11434"
+            mock_settings.qdrant_path = "/tmp/qdrant"
+            mock_settings.openwebui_path = "/tmp/openwebui"
+            mock_settings.kokoro_path = "/tmp/kokoro"
+            mock_settings.n8n_path = "/tmp/n8n"
+
+            specs = orc.get_services_definitions()
+            openwebui_spec = next(spec for spec in specs if spec["name"] == "open-webui")
+            self.assertEqual(openwebui_spec["environment"]["AUDIO_TTS_OPENAI_API_BASE_URL"], "http://kokoro:8881/v1")
+
         with patch("app.docker.orchestrator.settings") as mock_settings:
             mock_settings.ENABLE_TTS = False
+            mock_settings.APP_LANGUAGE = "en"
             mock_settings.QDRANT_PORT = 6333
             mock_settings.QDRANT_GRPC_PORT = 6334
             mock_settings.OPENWEBUI_PORT = 3000
@@ -74,7 +95,7 @@ class TestDockerOrchestrator(unittest.TestCase):
             mock_settings.qdrant_path = "/tmp/qdrant"
             mock_settings.openwebui_path = "/tmp/openwebui"
             mock_settings.n8n_path = "/tmp/n8n"
-            
+
             specs = orc.get_services_definitions()
             self.assertEqual(len(specs), 3)
             names = [spec["name"] for spec in specs]
@@ -82,7 +103,7 @@ class TestDockerOrchestrator(unittest.TestCase):
             self.assertIn("open-webui", names)
             self.assertNotIn("xtts", names)
             self.assertIn("n8n", names)
-            
+
             openwebui_spec = next(spec for spec in specs if spec["name"] == "open-webui")
             self.assertIn("OLLAMA_BASE_URL", openwebui_spec["environment"])
             self.assertNotIn("AUDIO_TTS_ENGINE", openwebui_spec["environment"])

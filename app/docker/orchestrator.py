@@ -5,7 +5,7 @@ from pydantic import BaseModel
 import docker
 from docker.models.containers import Container
 from docker.errors import ImageNotFound, NotFound, APIError
-from app.config.settings import settings
+from app.config.settings import settings, BASE_DIR
 from app.core.logging import logger
 from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn
 
@@ -105,7 +105,7 @@ class DockerOrchestrator:
             }
             if "onnx" in kokoro_image:
                 # Mount the German text rules script needed by the ONNX normalizer
-                rules_path = Path("app/docker/kokoro_german_onnx/german_text_rules.py").absolute()
+                rules_path = (BASE_DIR / "app/docker/kokoro_german_onnx/german_text_rules.py").resolve()
                 kokoro_spec["volumes"][str(rules_path)] = {"bind": "/app/german_text_rules.py", "mode": "ro"}
                 
                 # Add Godelaune ONNX performance environment variables
@@ -210,13 +210,13 @@ class DockerOrchestrator:
             pass
 
         # If it's the Kokoro image and the cloned source folder exists, build it locally
-        if image_name == settings.KOKORO_IMAGE and Path("Kokoro-FastAPI").exists():
+        if image_name == settings.KOKORO_IMAGE and (BASE_DIR / "Kokoro-FastAPI").exists():
             logger.info(f"Image '{image_name}' not found locally. Building from local Kokoro-FastAPI source...")
-            build_path = "Kokoro-FastAPI"
+            build_path = str((BASE_DIR / "Kokoro-FastAPI").resolve())
             dockerfile = "docker/cpu/Dockerfile.optimized"
-        elif image_name == "kokoro-german-onnx:latest" and Path("app/docker/kokoro_german_onnx/onnx-docker/Dockerfile").exists():
+        elif image_name == "kokoro-german-onnx:latest" and (BASE_DIR / "app/docker/kokoro_german_onnx/onnx-docker/Dockerfile").exists():
             logger.info(f"Image '{image_name}' not found locally. Building custom German ONNX Kokoro image...")
-            build_path = "app/docker/kokoro_german_onnx"
+            build_path = str((BASE_DIR / "app/docker/kokoro_german_onnx").resolve())
             dockerfile = "onnx-docker/Dockerfile"
         else:
             build_path = None

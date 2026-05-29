@@ -1,6 +1,7 @@
 @echo off
 title Offline AI Stack - Status Monitor
 cls
+cd /d "%~dp0"
 echo ==========================================================
 echo            OFFLINE AI STACK - STATUS MONITOR
 echo ==========================================================

@@ -54,27 +54,33 @@ class AppSettings(BaseSettings):
 
     @property
     def data_path(self) -> Path:
-        return Path(self.DATA_DIR).resolve()
+        path = Path(self.DATA_DIR)
+        return path if path.is_absolute() else (BASE_DIR / path).resolve()
 
     @property
     def qdrant_path(self) -> Path:
-        return Path(self.QDRANT_STORAGE_DIR).resolve()
+        path = Path(self.QDRANT_STORAGE_DIR)
+        return path if path.is_absolute() else (BASE_DIR / path).resolve()
 
     @property
     def openwebui_path(self) -> Path:
-        return Path(self.OPENWEBUI_STORAGE_DIR).resolve()
+        path = Path(self.OPENWEBUI_STORAGE_DIR)
+        return path if path.is_absolute() else (BASE_DIR / path).resolve()
 
     @property
     def n8n_path(self) -> Path:
-        return Path(self.N8N_STORAGE_DIR).resolve()
+        path = Path(self.N8N_STORAGE_DIR)
+        return path if path.is_absolute() else (BASE_DIR / path).resolve()
 
     @property
     def kokoro_path(self) -> Path:
-        return Path(self.KOKORO_STORAGE_DIR).resolve()
+        path = Path(self.KOKORO_STORAGE_DIR)
+        return path if path.is_absolute() else (BASE_DIR / path).resolve()
 
     @property
     def ingest_path(self) -> Path:
-        return Path(self.INGESTION_DIR).resolve()
+        path = Path(self.INGESTION_DIR)
+        return path if path.is_absolute() else (BASE_DIR / path).resolve()
 
     def ensure_directories(self) -> None:
         """Create necessary data storage directories if they do not exist."""

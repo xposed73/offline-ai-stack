@@ -1,6 +1,7 @@
 @echo off
 title Offline AI Stack - One-Click Launcher
 cls
+cd /d "%~dp0"
 echo ==========================================================
 echo         OFFLINE AI STACK - ONE-CLICK LAUNCHER
 echo ==========================================================

@@ -1,6 +1,7 @@
 @echo off
 title Offline AI Stack - Shutdown Tool
 cls
+cd /d "%~dp0"
 echo ==========================================================
 echo            OFFLINE AI STACK - SHUTDOWN TOOL
 echo ==========================================================

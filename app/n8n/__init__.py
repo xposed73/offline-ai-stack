@@ -18,7 +18,7 @@ class N8NManager:
         except Exception:
             # Fallback to general port ping
             try:
-                res = httpx.get(self.url, timeout=2.0)
+                res = httpx.get(self.url, timeout=2.0, follow_redirects=True)
                 return res.status_code == 200
             except Exception:
                 return False

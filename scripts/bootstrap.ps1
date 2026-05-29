@@ -76,6 +76,47 @@ if (-not (Test-Path ".env")) {
     Write-Host "  -> Pre-existing configuration '.env' detected. Keeping unchanged." -ForegroundColor Gray
 }
 
+# 6. Optional: Setup Kokoro-German ONNX if language is German
+$envConfig = @{}
+if (Test-Path ".env") {
+    Get-Content ".env" | Where-Object { $_ -match "^([^=]+)=(.*)$" } | ForEach-Object {
+        if ($_ -match "^([^=]+)=(.*)$") {
+            $key = $Matches[1].Trim()
+            $value = $Matches[2].Trim()
+            $envConfig[$key] = $value
+        }
+    }
+}
+
+$appLanguage = $envConfig["APP_LANGUAGE"]
+if ($appLanguage -eq "de") {
+    Write-Host "[6/6] Setting up Kokoro-German ONNX (TTS)..." -ForegroundColor Yellow
+    $onnxDir = "app/docker/kokoro_german_onnx"
+    
+    if (-not (Test-Path $onnxDir)) {
+        Write-Host "  -> Cloning Godelaune Kokoro ONNX repository..." -ForegroundColor Blue
+        git clone https://github.com/Godelaune/Kokoro-82M-ONNX-German-Martin.git $onnxDir
+    }
+    
+    $modelFile = "$onnxDir/kokoro-martin.onnx"
+    $voiceFile = "$onnxDir/voices-martin.npz"
+    
+    if (-not (Test-Path $modelFile)) {
+        Write-Host "  -> Downloading public ONNX weights (kokoro-martin.onnx)..." -ForegroundColor Blue
+        Invoke-WebRequest -Uri "https://huggingface.co/Godelaune/Kokoro-82M-ONNX-German-Martin/resolve/main/kokoro-martin.onnx" -OutFile $modelFile
+    } else {
+        Write-Host "  -> kokoro-martin.onnx already exists, skipping." -ForegroundColor Gray
+    }
+    
+    if (-not (Test-Path $voiceFile)) {
+        Write-Host "  -> Downloading public voice profiles (voices-martin.npz)..." -ForegroundColor Blue
+        Invoke-WebRequest -Uri "https://huggingface.co/Godelaune/Kokoro-82M-ONNX-German-Martin/resolve/main/voices-martin.npz" -OutFile $voiceFile
+    } else {
+        Write-Host "  -> voices-martin.npz already exists, skipping." -ForegroundColor Gray
+    }
+}
+
+
 # Success Overview
 Write-Host "==========================================================" -ForegroundColor Green
 Write-Host "        OFFLINE AI STACK PROVISIONED SUCCESSFULLY!         " -ForegroundColor Green

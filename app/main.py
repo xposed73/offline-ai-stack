@@ -1,4 +1,10 @@
 import sys
+if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+        sys.stderr.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
 import argparse
 from pathlib import Path
 from typing import Optional
@@ -362,7 +368,7 @@ def cli_start() -> None:
             title="Local AI Environment"
         ))
     else:
-        console.print(Panel("[bold yellow]Stack containers started, but failed to complete pulling Ollama models. Please pull them manually using:\n  ollama pull nomic-embed-text\n  ollama pull llama3[/bold yellow]", border_style="yellow"))
+        console.print(Panel("[bold yellow]Stack containers started, but failed to complete pulling Ollama models. Please pull them manually using:\n  ollama pull nomic-embed-text\n  ollama pull tinyllama[/bold yellow]", border_style="yellow"))
 
 def cli_stop() -> None:
     """CLI operation: stops all stack containers."""

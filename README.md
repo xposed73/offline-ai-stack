@@ -12,7 +12,7 @@ Offline AI Stack is a production-grade, modular, and fully private local AI ecos
 * **Modern Package Manager**: Built specifically around Astral's ultra-fast `uv` toolchain instead of legacy pip paths.
 * **Auto-GPU Verification**: Detects available NVIDIA CUDA cores and dedicates VRAM via automatic command-line parsing of `nvidia-smi`.
 * **Robust Docker Orchestration**: Python SDK container lifecycle controller that deploys, monitors, and stops Qdrant, OpenWebUI, and n8n services on a custom virtual bridge network.
-* **Automated Ollama Pipelines**: Streamlined streaming pulls for private embeddings (`nomic-embed-text`) and inference models (`llama3` or `mistral`) with active terminal progress bars.
+* **Automated Ollama Pipelines**: Streamlined streaming pulls for private embeddings (`nomic-embed-text`) and inference models (`tinyllama` or `mistral`) with active terminal progress bars.
 * **Dynamic Dimension Auto-Detection**: Qdrant vector collections auto-configure their cosine distance coordinates by automatically querying the dimension payload of the downloaded embedding engine.
 * **Enterprise Ingestion API**: Out-of-the-box support for single PDF documents, folder bulk indexing, semantic search queries, and custom system-level German language optimization flags.
 

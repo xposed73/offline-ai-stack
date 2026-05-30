@@ -85,10 +85,8 @@ class DockerOrchestrator:
             }
         ]
 
-        # Determine Kokoro Image
-        kokoro_image = settings.KOKORO_IMAGE
-        if getattr(settings, "APP_LANGUAGE", "en").lower() == "de":
-            kokoro_image = "kokoro-german-onnx:latest"
+        # Determine Kokoro Image - We always use the custom ONNX container which supports both English and German.
+        kokoro_image = "kokoro-german-onnx:latest"
             
         if settings.ENABLE_TTS:
             kokoro_spec = {
@@ -108,7 +106,10 @@ class DockerOrchestrator:
                 rules_path = (BASE_DIR / "app/docker/kokoro_german_onnx/german_text_rules.py").resolve()
                 kokoro_spec["volumes"][str(rules_path)] = {"bind": "/app/german_text_rules.py", "mode": "ro"}
                 
-                # Add Godelaune ONNX performance environment variables
+                default_voice = "martin" if getattr(settings, "APP_LANGUAGE", "en").lower() == "de" else "af_sky"
+                default_lang = "de" if getattr(settings, "APP_LANGUAGE", "en").lower() == "de" else "en-us"
+
+                # Add ONNX performance environment variables
                 kokoro_spec["environment"] = {
                     "KOKORO_ONNX_THREADS": "2",
                     "KOKORO_ONNX_INTRA_OP_THREADS": "2",
@@ -117,8 +118,8 @@ class DockerOrchestrator:
                     "KOKORO_ONNX_GRAPH_OPT": "all",
                     "KOKORO_ONNX_SPEED": "1.125",
                     "KOKORO_ONNX_TRIM": "true",
-                    "KOKORO_ONNX_VOICE": "martin",
-                    "KOKORO_ONNX_LANG": "de",
+                    "KOKORO_ONNX_VOICE": default_voice,
+                    "KOKORO_ONNX_LANG": default_lang,
                     "OMP_NUM_THREADS": "2",
                     "OPENBLAS_NUM_THREADS": "2",
                     "MKL_NUM_THREADS": "2",
@@ -136,10 +137,15 @@ class DockerOrchestrator:
 
         kokoro_internal_port = "8881" if "onnx" in kokoro_image.lower() else "8880"
 
+        llm_model = settings.LLM_MODEL
+        default_models = f"{llm_model};{llm_model}:latest" if ":" not in llm_model else llm_model
+
         # Configure OpenWebUI environment settings (with optional TTS parameters)
         webui_env = {
             "OLLAMA_BASE_URL": ollama_url,
-            "WEBUI_AUTH": "false",
+            "WEBUI_AUTH": "true" if settings.OPENWEBUI_AUTH else "false",
+            "ENABLE_PERSISTENT_CONFIG": "false",
+            "DEFAULT_MODELS": default_models,
         }
         
         # Inject German language mode
@@ -153,6 +159,8 @@ class DockerOrchestrator:
             # Using the default voice (e.g. af_bella) to prevent 400 Bad Request API crashes.
             if getattr(settings, "APP_LANGUAGE", "en").lower() == "de" and tts_voice.startswith(("af_", "am_", "bf_", "bm_", "df_")):
                 tts_voice = "martin"  # Use the German ONNX voice
+            elif getattr(settings, "APP_LANGUAGE", "en").lower() == "en" and tts_voice == "martin":
+                tts_voice = "af_sky"  # Use the default English ONNX voice
                 
             webui_env.update({
                 "AUDIO_TTS_ENGINE": "openai",
@@ -215,7 +223,28 @@ class DockerOrchestrator:
             build_path = str((BASE_DIR / "Kokoro-FastAPI").resolve())
             dockerfile = "docker/cpu/Dockerfile.optimized"
         elif image_name == "kokoro-german-onnx:latest" and (BASE_DIR / "app/docker/kokoro_german_onnx/onnx-docker/Dockerfile").exists():
-            logger.info(f"Image '{image_name}' not found locally. Building custom German ONNX Kokoro image...")
+            logger.info(f"Image '{image_name}' not found locally. Building custom German/English ONNX Kokoro image...")
+            # Auto-download any missing model weights/voices before building
+            onnx_dir = BASE_DIR / "app/docker/kokoro_german_onnx"
+            models_to_download = {
+                "kokoro-martin.onnx": "https://huggingface.co/Godelaune/Kokoro-82M-ONNX-German-Martin/resolve/main/kokoro-martin.onnx",
+                "voices-martin.npz": "https://huggingface.co/Godelaune/Kokoro-82M-ONNX-German-Martin/resolve/main/voices-martin.npz",
+                "kokoro-v0_19.onnx": "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files/kokoro-v0_19.onnx",
+                "voices.bin": "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files/voices.bin"
+            }
+            import urllib.request
+            for filename, url in models_to_download.items():
+                filepath = onnx_dir / filename
+                if not filepath.exists():
+                    logger.info(f"Auto-downloading required TTS model file: {filename}...")
+                    try:
+                        temp_filepath = filepath.with_suffix(".tmp")
+                        urllib.request.urlretrieve(url, temp_filepath)
+                        temp_filepath.rename(filepath)
+                        logger.info(f"Successfully downloaded {filename}.")
+                    except Exception as download_error:
+                        logger.error(f"Failed to auto-download {filename}: {download_error}")
+                        raise download_error
             build_path = str((BASE_DIR / "app/docker/kokoro_german_onnx").resolve())
             dockerfile = "onnx-docker/Dockerfile"
         else:

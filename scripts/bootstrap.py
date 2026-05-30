@@ -106,53 +106,33 @@ def phase_one():
         sys.exit(1)
         
     os.execv(venv_python, [venv_python, __file__, "--phase-two"])
-
 def clone_and_build_kokoro(console):
-    """Clones Kokoro-FastAPI and builds the docker container using the rich library."""
+    """Clones Kokoro ONNX repository and builds the docker container using the rich library."""
     from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn
     from rich.panel import Panel
     import docker
     import dotenv
 
     env_config = dotenv.dotenv_values(".env")
-    app_language = env_config.get("APP_LANGUAGE", "en").lower()
 
-    if app_language == "de":
-        console.print("[bold yellow][6/6] Setting up Kokoro-German ONNX (TTS)...[/bold yellow]")
+    console.print("[bold yellow][6/6] Setting up Kokoro ONNX Multilingual (TTS)...[/bold yellow]")
+    
+    onnx_dir = Path("app/docker/kokoro_german_onnx")
+    if not onnx_dir.exists():
+        console.print("[blue]  -> Cloning Godelaune Kokoro ONNX repository...[/blue]")
+        res = subprocess.run(["git", "clone", "https://github.com/Godelaune/Kokoro-82M-ONNX-German-Martin.git", "app/docker/kokoro_german_onnx"], capture_output=True, text=True)
+        if res.returncode != 0:
+            console.print(f"[bold red]  [Error] Failed to clone repository: {res.stderr}[/bold red]")
+            return
+        console.print("[bold green]  -> Repository cloned successfully.[/bold green]")
+    
+    # Download ONNX models (this script now downloads both German and English weights)
+    console.print("[blue]  -> Downloading public ONNX weights for German and English...[/blue]")
+    subprocess.run(["sh", "scripts/download-model-files.sh"], cwd="app/docker/kokoro_german_onnx", check=True)
         
-        onnx_dir = Path("app/docker/kokoro_german_onnx")
-        if not onnx_dir.exists():
-            console.print("[blue]  -> Cloning Godelaune Kokoro ONNX repository...[/blue]")
-            res = subprocess.run(["git", "clone", "https://github.com/Godelaune/Kokoro-82M-ONNX-German-Martin.git", "app/docker/kokoro_german_onnx"], capture_output=True, text=True)
-            if res.returncode != 0:
-                console.print(f"[bold red]  [Error] Failed to clone repository: {res.stderr}[/bold red]")
-                return
-            console.print("[bold green]  -> Repository cloned successfully.[/bold green]")
-        
-        # Download ONNX models
-        console.print("[blue]  -> Downloading public ONNX weights...[/blue]")
-        subprocess.run(["sh", "scripts/download-model-files.sh"], cwd="app/docker/kokoro_german_onnx", check=True)
-            
-        image_name = "kokoro-german-onnx:latest"
-        build_path = "app/docker/kokoro_german_onnx"
-        dockerfile = "onnx-docker/Dockerfile"
-    else:
-        console.print("[bold yellow][6/6] Setting up Kokoro-FastAPI (TTS)...[/bold yellow]")
-        
-        kokoro_dir = Path("Kokoro-FastAPI")
-        if not kokoro_dir.exists():
-            console.print("[blue]  -> Cloning Kokoro-FastAPI repository...[/blue]")
-            res = subprocess.run(["git", "clone", "https://github.com/remsky/Kokoro-FastAPI.git"], capture_output=True, text=True)
-            if res.returncode != 0:
-                console.print(f"[bold red]  [Error] Failed to clone repository: {res.stderr}[/bold red]")
-                return
-            console.print("[bold green]  -> Repository cloned successfully.[/bold green]")
-        else:
-            console.print("[dim]  -> Kokoro-FastAPI repository already exists.[/dim]")
-            
-        image_name = "ghcr.io/remsky/kokoro-fastapi-cpu:v0.3.0"
-        build_path = "Kokoro-FastAPI"
-        dockerfile = "docker/cpu/Dockerfile.optimized"
+    image_name = "kokoro-german-onnx:latest"
+    build_path = "app/docker/kokoro_german_onnx"
+    dockerfile = "onnx-docker/Dockerfile"
 
     try:
         client = docker.from_env()

@@ -23,7 +23,7 @@ class AppSettings(BaseSettings):
 
     # Ollama settings
     OLLAMA_HOST: str = Field(default="http://localhost:11434", env="OLLAMA_HOST")
-    LLM_MODEL: str = Field(default="llama3", env="LLM_MODEL")
+    LLM_MODEL: str = Field(default="tinyllama", env="LLM_MODEL")
     EMBEDDING_MODEL: str = Field(default="nomic-embed-text", env="EMBEDDING_MODEL")
 
     # Docker network
@@ -37,6 +37,7 @@ class AppSettings(BaseSettings):
 
     # OpenWebUI, n8n, & XTTS
     OPENWEBUI_PORT: int = Field(default=3000, env="OPENWEBUI_PORT")
+    OPENWEBUI_AUTH: bool = Field(default=False, env="OPENWEBUI_AUTH")
     N8N_PORT: int = Field(default=5678, env="N8N_PORT")
     KOKORO_PORT: int = Field(default=8880, env="KOKORO_PORT")
     KOKORO_IMAGE: str = Field(default="ghcr.io/remsky/kokoro-fastapi-cpu:v0.3.0", env="KOKORO_IMAGE")

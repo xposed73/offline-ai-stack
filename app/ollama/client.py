@@ -112,7 +112,7 @@ class OllamaClient:
                 logger.error(f"Failed to pull model '{model_name}': {e}")
                 return False
 
-    def generate_completion(self, prompt: str, model: str = "llama3") -> Optional[str]:
+    def generate_completion(self, prompt: str, model: str = "tinyllama") -> Optional[str]:
         """Runs a fast text completion API test (for verification of inference)."""
         if not self.is_healthy():
             return None

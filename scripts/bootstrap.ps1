@@ -88,32 +88,45 @@ if (Test-Path ".env") {
     }
 }
 
-$appLanguage = $envConfig["APP_LANGUAGE"]
-if ($appLanguage -eq "de") {
-    Write-Host "[6/6] Setting up Kokoro-German ONNX (TTS)..." -ForegroundColor Yellow
-    $onnxDir = "app/docker/kokoro_german_onnx"
-    
-    if (-not (Test-Path $onnxDir)) {
-        Write-Host "  -> Cloning Godelaune Kokoro ONNX repository..." -ForegroundColor Blue
-        git clone https://github.com/Godelaune/Kokoro-82M-ONNX-German-Martin.git $onnxDir
-    }
-    
-    $modelFile = "$onnxDir/kokoro-martin.onnx"
-    $voiceFile = "$onnxDir/voices-martin.npz"
-    
-    if (-not (Test-Path $modelFile)) {
-        Write-Host "  -> Downloading public ONNX weights (kokoro-martin.onnx)..." -ForegroundColor Blue
-        Invoke-WebRequest -Uri "https://huggingface.co/Godelaune/Kokoro-82M-ONNX-German-Martin/resolve/main/kokoro-martin.onnx" -OutFile $modelFile
-    } else {
-        Write-Host "  -> kokoro-martin.onnx already exists, skipping." -ForegroundColor Gray
-    }
-    
-    if (-not (Test-Path $voiceFile)) {
-        Write-Host "  -> Downloading public voice profiles (voices-martin.npz)..." -ForegroundColor Blue
-        Invoke-WebRequest -Uri "https://huggingface.co/Godelaune/Kokoro-82M-ONNX-German-Martin/resolve/main/voices-martin.npz" -OutFile $voiceFile
-    } else {
-        Write-Host "  -> voices-martin.npz already exists, skipping." -ForegroundColor Gray
-    }
+Write-Host "[6/6] Setting up Kokoro ONNX Multilingual (TTS)..." -ForegroundColor Yellow
+$onnxDir = "app/docker/kokoro_german_onnx"
+
+if (-not (Test-Path $onnxDir)) {
+    Write-Host "  -> Cloning Godelaune Kokoro ONNX repository..." -ForegroundColor Blue
+    git clone https://github.com/Godelaune/Kokoro-82M-ONNX-German-Martin.git $onnxDir
+}
+
+$modelFileDe = "$onnxDir/kokoro-martin.onnx"
+$voiceFileDe = "$onnxDir/voices-martin.npz"
+$modelFileEn = "$onnxDir/kokoro-v0_19.onnx"
+$voiceFileEn = "$onnxDir/voices.bin"
+
+if (-not (Test-Path $modelFileDe)) {
+    Write-Host "  -> Downloading public German ONNX weights (kokoro-martin.onnx)..." -ForegroundColor Blue
+    Invoke-WebRequest -Uri "https://huggingface.co/Godelaune/Kokoro-82M-ONNX-German-Martin/resolve/main/kokoro-martin.onnx" -OutFile $modelFileDe
+} else {
+    Write-Host "  -> kokoro-martin.onnx already exists, skipping." -ForegroundColor Gray
+}
+
+if (-not (Test-Path $voiceFileDe)) {
+    Write-Host "  -> Downloading public German voice profiles (voices-martin.npz)..." -ForegroundColor Blue
+    Invoke-WebRequest -Uri "https://huggingface.co/Godelaune/Kokoro-82M-ONNX-German-Martin/resolve/main/voices-martin.npz" -OutFile $voiceFileDe
+} else {
+    Write-Host "  -> voices-martin.npz already exists, skipping." -ForegroundColor Gray
+}
+
+if (-not (Test-Path $modelFileEn)) {
+    Write-Host "  -> Downloading public English ONNX weights (kokoro-v0_19.onnx)..." -ForegroundColor Blue
+    Invoke-WebRequest -Uri "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files/kokoro-v0_19.onnx" -OutFile $modelFileEn
+} else {
+    Write-Host "  -> kokoro-v0_19.onnx already exists, skipping." -ForegroundColor Gray
+}
+
+if (-not (Test-Path $voiceFileEn)) {
+    Write-Host "  -> Downloading public English voice profiles (voices.bin)..." -ForegroundColor Blue
+    Invoke-WebRequest -Uri "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files/voices.bin" -OutFile $voiceFileEn
+} else {
+    Write-Host "  -> voices.bin already exists, skipping." -ForegroundColor Gray
 }
 
 

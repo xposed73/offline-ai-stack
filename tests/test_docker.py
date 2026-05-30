@@ -59,7 +59,7 @@ class TestDockerOrchestrator(unittest.TestCase):
             openwebui_spec = next(spec for spec in specs if spec["name"] == "open-webui")
             self.assertIn("OLLAMA_BASE_URL", openwebui_spec["environment"])
             self.assertIn("AUDIO_TTS_ENGINE", openwebui_spec["environment"])
-            self.assertEqual(openwebui_spec["environment"]["AUDIO_TTS_OPENAI_API_BASE_URL"], "http://kokoro:8880/v1")
+            self.assertEqual(openwebui_spec["environment"]["AUDIO_TTS_OPENAI_API_BASE_URL"], "http://kokoro:8881/v1")
             self.assertEqual(openwebui_spec["environment"]["AUDIO_TTS_VOICE"], "af_sky")
             self.assertEqual(openwebui_spec["environment"]["AUDIO_TTS_MODEL"], "kokoro")
 

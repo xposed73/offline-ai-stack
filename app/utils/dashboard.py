@@ -680,7 +680,7 @@ def get_dashboard_html() -> str:
                     </div>
                     <div class="card-info">
                         <h3>Chat with AI</h3>
-                        <p>Launch OpenWebUI interface to chat with local models (llama3) and discuss context.</p>
+                        <p>Launch OpenWebUI interface to chat with local models (tinyllama) and discuss context.</p>
                     </div>
                 </div>
                 <div class="card-bottom">

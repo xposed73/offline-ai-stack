@@ -58,6 +58,40 @@ def detect_gpu() -> GPUInfo:
     except (subprocess.SubprocessError, FileNotFoundError, IndexError, ValueError):
         pass
 
+    # 2. Try Windows PowerShell fallback for NVIDIA GPUs if nvidia-smi failed (e.g. permission issues)
+    if platform.system() == "Windows":
+        try:
+            cmd = ["powershell", "-Command", "Get-CimInstance Win32_VideoController | Select-Object Name, AdapterCompatibility, AdapterRAM, DriverVersion | ConvertTo-Json"]
+            res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=True)
+            if res.stdout.strip():
+                import json
+                gpus = json.loads(res.stdout)
+                # If there's only one GPU, it might not be a list in JSON, wrap it
+                if not isinstance(gpus, list):
+                    gpus = [gpus]
+                
+                for g in gpus:
+                    compat = str(g.get("AdapterCompatibility", "")).lower()
+                    name = str(g.get("Name", "")).lower()
+                    if "nvidia" in compat or "nvidia" in name:
+                        gpu_name = g.get("Name", "NVIDIA GPU")
+                        ram_bytes = g.get("AdapterRAM", 0)
+                        if ram_bytes:
+                            if ram_bytes < 0:
+                                ram_bytes = ram_bytes + 2**32
+                            vram_mb = int(ram_bytes / (1024 * 1024))
+                        else:
+                            vram_mb = 0
+                        driver = g.get("DriverVersion", "Unknown")
+                        return GPUInfo(
+                            detected=True,
+                            name=gpu_name,
+                            vram_mb=vram_mb,
+                            driver_version=driver
+                        )
+        except Exception:
+            pass
+
     # 2. Try macOS (Darwin) GPU detection
     if platform.system() == "Darwin":
         try:

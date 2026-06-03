@@ -38,12 +38,18 @@ class AppSettings(BaseSettings):
     # OpenWebUI, n8n, & XTTS
     OPENWEBUI_PORT: int = Field(default=3000, env="OPENWEBUI_PORT")
     OPENWEBUI_AUTH: bool = Field(default=False, env="OPENWEBUI_AUTH")
+    OPENWEBUI_IMAGE: str = Field(default="ghcr.io/open-webui/open-webui:v0.9.6", env="OPENWEBUI_IMAGE")
     N8N_PORT: int = Field(default=5678, env="N8N_PORT")
     KOKORO_PORT: int = Field(default=8880, env="KOKORO_PORT")
     KOKORO_IMAGE: str = Field(default="ghcr.io/remsky/kokoro-fastapi-cpu:v0.3.0", env="KOKORO_IMAGE")
     KOKORO_VOICE: str = Field(default="af_sky", env="KOKORO_VOICE")
     KOKORO_MODEL: str = Field(default="kokoro", env="KOKORO_MODEL")
     ENABLE_TTS: bool = Field(default=True, env="ENABLE_TTS")
+
+    # Offline Speech-to-Text (Whisper) Settings
+    ENABLE_STT: bool = Field(default=True, env="ENABLE_STT")
+    WHISPER_MODEL: str = Field(default="base", env="WHISPER_MODEL")
+    WHISPER_STORAGE_DIR: str = Field(default="./data/whisper", env="WHISPER_STORAGE_DIR")
 
     # Storage paths
     DATA_DIR: str = Field(default="./data", env="DATA_DIR")
@@ -79,6 +85,11 @@ class AppSettings(BaseSettings):
         return path if path.is_absolute() else (BASE_DIR / path).resolve()
 
     @property
+    def whisper_path(self) -> Path:
+        path = Path(self.WHISPER_STORAGE_DIR)
+        return path if path.is_absolute() else (BASE_DIR / path).resolve()
+
+    @property
     def ingest_path(self) -> Path:
         path = Path(self.INGESTION_DIR)
         return path if path.is_absolute() else (BASE_DIR / path).resolve()
@@ -90,6 +101,7 @@ class AppSettings(BaseSettings):
         self.openwebui_path.mkdir(parents=True, exist_ok=True)
         self.n8n_path.mkdir(parents=True, exist_ok=True)
         self.kokoro_path.mkdir(parents=True, exist_ok=True)
+        self.whisper_path.mkdir(parents=True, exist_ok=True)
         self.ingest_path.mkdir(parents=True, exist_ok=True)
 
 # Instantiate settings

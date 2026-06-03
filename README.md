@@ -15,6 +15,7 @@ Offline AI Stack is a production-grade, modular, and fully private local AI ecos
 * **Automated Ollama Pipelines**: Streamlined streaming pulls for private embeddings (`nomic-embed-text`) and inference models (`tinyllama` or `mistral`) with active terminal progress bars.
 * **Dynamic Dimension Auto-Detection**: Qdrant vector collections auto-configure their cosine distance coordinates by automatically querying the dimension payload of the downloaded embedding engine.
 * **Enterprise Ingestion API**: Out-of-the-box support for single PDF documents, folder bulk indexing, semantic search queries, and custom system-level German language optimization flags.
+* **Offline Speech-to-Text**: Built-in Whisper audio transcription using `faster-whisper` and auto-managed `static-ffmpeg` binary injection. Operates with GPU acceleration (CUDA) if detected, otherwise falling back to CPU (int8 quantized).
 
 ---
 
@@ -153,6 +154,11 @@ Use the convenience batch file/script to run checks, or query the CLI directly:
 .venv\Scripts\offline-ai query "Wie hoch sind die Mindestanforderungen für RAM?" --de
 ```
 
+### Transcribe an Audio File (Speech-to-Text)
+```powershell
+.venv\Scripts\offline-ai transcribe-file "C:\Users\root\Desktop\meeting_recording.mp3"
+```
+
 ### Stop Running Containers
 ```powershell
 .venv\Scripts\offline-ai stop
@@ -188,6 +194,9 @@ Launch the high-performance FastAPI server to link third-party systems (like you
   }
   ```
 * **`POST /search`**: Fetch raw vector text splits, scores, and parent bibliography metadata directly without invoking the LLM.
+* **`POST /v1/audio/transcriptions`**: Transcribe uploaded audio files to text. Fully OpenAI-compatible endpoint used by OpenWebUI and custom integrations:
+  * Content-Type: `multipart/form-data`
+  * Parameters: `file` (binary), `language` (optional)
 
 ---
 

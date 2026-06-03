@@ -15,7 +15,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.utils.dashboard import get_dashboard_html
 
 # Core Stack Imports
+import os
+import tempfile
 from app.config.settings import settings
+from app.whisper.transcriber import whisper_manager
 from app.core.logging import logger, setup_logger
 from app.core.system import generate_system_report
 from app.docker.orchestrator import DockerOrchestrator
@@ -109,6 +112,12 @@ def get_api_status():
             "n8n": {
                 "running": n8n_mgr.is_healthy(),
                 "url": n8n_mgr.get_web_url()
+            },
+            "whisper": {
+                "enabled": settings.ENABLE_STT,
+                "running": whisper_manager.model is not None,
+                "model": settings.WHISPER_MODEL,
+                "device": whisper_manager.device
             }
         }
     except Exception as e:
@@ -215,6 +224,45 @@ def api_semantic_search(req: SearchRequest):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e)
+        )
+
+from fastapi import UploadFile, File, Form
+
+@app.post("/v1/audio/transcriptions", tags=["Speech-to-Text"])
+@app.post("/audio/transcriptions", tags=["Speech-to-Text"])
+async def api_transcribe_audio(
+    file: UploadFile = File(...),
+    model: str = Form(None),
+    language: Optional[str] = Form(None),
+    prompt: Optional[str] = Form(None),
+    response_format: Optional[str] = Form(None),
+    temperature: Optional[float] = Form(None)
+):
+    """Transcribes an uploaded audio file into text using Whisper."""
+    if not settings.ENABLE_STT:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Speech-to-text (STT) service is disabled in configuration."
+        )
+
+    try:
+        suffix = Path(file.filename).suffix if file.filename else ".wav"
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp_file:
+            content = await file.read()
+            tmp_file.write(content)
+            tmp_path = tmp_file.name
+
+        try:
+            text = whisper_manager.transcribe(tmp_path, language=language)
+            return {"text": text}
+        finally:
+            if os.path.exists(tmp_path):
+                os.unlink(tmp_path)
+    except Exception as e:
+        logger.error(f"Speech-to-Text transcription failure: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Transcription failed: {str(e)}"
         )
 
 
@@ -495,6 +543,21 @@ def cli_query(query_str: str, german_mode: bool = False) -> None:
     except Exception as e:
         console.print(f"[bold red]Query failed: {e}[/bold red]")
 
+def cli_transcribe(audio_path_str: str) -> None:
+    """CLI operation: transcribes a local audio file and outputs the text."""
+    path = Path(audio_path_str)
+    if not path.exists():
+        console.print(f"[bold red]Error: Specified file path does not exist: {audio_path_str}[/bold red]")
+        sys.exit(1)
+        
+    console.print(f"[yellow]Initializing local Whisper model and transcribing '{path.name}'...[/yellow]")
+    try:
+        from app.whisper.transcriber import whisper_manager
+        text = whisper_manager.transcribe(str(path.resolve()))
+        console.print(Panel(text, title="Whisper Transcription Result", border_style="bold green"))
+    except Exception as e:
+        console.print(f"[bold red]Transcription failed: {e}[/bold red]")
+
 def main() -> None:
     """Main CLI program router."""
     parser = argparse.ArgumentParser(description="Offline AI Stack Orchestration CLI")
@@ -522,6 +585,10 @@ def main() -> None:
     query_parser.add_argument("prompt", type=str, help="The prompt to search and formulate answer for")
     query_parser.add_argument("--de", action="store_true", help="German language optimization override")
 
+    # transcribe-file
+    transcribe_parser = subparsers.add_parser("transcribe-file", help="Transcribe a local audio file (MP3, WAV, M4A, etc.)")
+    transcribe_parser.add_argument("path", type=str, help="Absolute or relative path to the audio file")
+
     # serve
     subparsers.add_parser("serve", help="Launch the high-performance FastAPI web server")
 
@@ -542,6 +609,8 @@ def main() -> None:
         cli_ingest_folder(args.path)
     elif args.command == "query":
         cli_query(args.prompt, german_mode=args.de)
+    elif args.command == "transcribe-file":
+        cli_transcribe(args.path)
     elif args.command == "serve":
         draw_banner()
         console.print(f"[bold green]Launching high-performance REST API Server...[/bold green]")

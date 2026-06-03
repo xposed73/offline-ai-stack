@@ -170,9 +170,17 @@ class DockerOrchestrator:
                 "AUDIO_TTS_VOICE": tts_voice
             })
 
+        if settings.ENABLE_STT:
+            webui_env.update({
+                "AUDIO_STT_ENGINE": "openai",
+                "AUDIO_STT_OPENAI_API_BASE_URL": f"http://host.docker.internal:{settings.APP_PORT}/v1",
+                "AUDIO_STT_OPENAI_API_KEY": "offline-ai-stack",
+                "AUDIO_STT_MODEL": settings.WHISPER_MODEL
+            })
+
         services.append({
             "name": "open-webui",
-            "image": "ghcr.io/open-webui/open-webui:main",
+            "image": settings.OPENWEBUI_IMAGE,
             "ports": {
                 "8080/tcp": settings.OPENWEBUI_PORT
             },

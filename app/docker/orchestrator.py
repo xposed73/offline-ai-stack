@@ -429,8 +429,15 @@ class DockerOrchestrator:
                 self.client.containers.run(**run_kwargs)
             except Exception as e:
                 # If GPU reservation fails, fallback to CPU
-                if "device_requests" in run_kwargs and ("gpu" in str(e).lower() or "device" in str(e).lower()):
+                if "device_requests" in run_kwargs:
                     logger.warning(f"Failed to start container '{name}' with GPU reservation. Retrying in CPU fallback mode. Error: {e}")
+                    # Cleanup the failed created container first to avoid name conflicts
+                    try:
+                        existing_failed = self.client.containers.get(name)
+                        existing_failed.remove(force=True)
+                    except NotFound:
+                        pass
+                    
                     del run_kwargs["device_requests"]
                     # If this is the kokoro container, switch image to CPU version
                     if name == "kokoro":

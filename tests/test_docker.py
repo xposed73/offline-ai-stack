@@ -33,6 +33,7 @@ class TestDockerOrchestrator(unittest.TestCase):
 
         with patch("app.docker.orchestrator.settings") as mock_settings:
             mock_settings.ENABLE_TTS = True
+            mock_settings.ENABLE_COSYVOICE = False
             mock_settings.APP_LANGUAGE = "en"
             mock_settings.QDRANT_PORT = 6333
             mock_settings.QDRANT_GRPC_PORT = 6334
@@ -72,6 +73,7 @@ class TestDockerOrchestrator(unittest.TestCase):
 
         with patch("app.docker.orchestrator.settings") as mock_settings:
             mock_settings.ENABLE_TTS = True
+            mock_settings.ENABLE_COSYVOICE = False
             mock_settings.APP_LANGUAGE = "de"
             mock_settings.QDRANT_PORT = 6333
             mock_settings.QDRANT_GRPC_PORT = 6334
@@ -95,6 +97,7 @@ class TestDockerOrchestrator(unittest.TestCase):
 
         with patch("app.docker.orchestrator.settings") as mock_settings:
             mock_settings.ENABLE_TTS = False
+            mock_settings.ENABLE_COSYVOICE = False
             mock_settings.APP_LANGUAGE = "en"
             mock_settings.QDRANT_PORT = 6333
             mock_settings.QDRANT_GRPC_PORT = 6334
@@ -118,6 +121,41 @@ class TestDockerOrchestrator(unittest.TestCase):
             self.assertIn("OLLAMA_BASE_URL", openwebui_spec["environment"])
             self.assertNotIn("AUDIO_TTS_ENGINE", openwebui_spec["environment"])
             self.assertNotIn("AUDIO_STT_ENGINE", openwebui_spec["environment"])
+
+        # Test CosyVoice Integration
+        with patch("app.docker.orchestrator.settings") as mock_settings:
+            mock_settings.ENABLE_TTS = False
+            mock_settings.ENABLE_COSYVOICE = True
+            mock_settings.APP_LANGUAGE = "de"
+            mock_settings.QDRANT_PORT = 6333
+            mock_settings.QDRANT_GRPC_PORT = 6334
+            mock_settings.OPENWEBUI_PORT = 3000
+            mock_settings.COSYVOICE_PORT = 8008
+            mock_settings.COSYVOICE_IMAGE = "thorstenvoice/cosyvoice-tts:cosyvoice3"
+            mock_settings.N8N_PORT = 5678
+            mock_settings.OLLAMA_HOST = "http://localhost:11434"
+            mock_settings.qdrant_path = "/tmp/qdrant"
+            mock_settings.openwebui_path = "/tmp/openwebui"
+            mock_settings.cosyvoice_path = "/tmp/cosyvoice"
+            mock_settings.n8n_path = "/tmp/n8n"
+            mock_settings.ENABLE_STT = False
+            mock_settings.APP_PORT = 8000
+
+            specs = orc.get_services_definitions()
+            self.assertEqual(len(specs), 4) # qdrant, open-webui, cosyvoice, n8n
+            names = [spec["name"] for spec in specs]
+            self.assertIn("qdrant", names)
+            self.assertIn("open-webui", names)
+            self.assertIn("cosyvoice", names)
+            self.assertIn("n8n", names)
+
+            cosyvoice_spec = next(spec for spec in specs if spec["name"] == "cosyvoice")
+            self.assertEqual(cosyvoice_spec["image"], "thorstenvoice/cosyvoice-tts:cosyvoice3")
+            self.assertEqual(list(cosyvoice_spec["ports"].values())[0], 8008)
+
+            openwebui_spec = next(spec for spec in specs if spec["name"] == "open-webui")
+            self.assertEqual(openwebui_spec["environment"]["AUDIO_TTS_OPENAI_API_BASE_URL"], "http://host.docker.internal:8000/v1")
+            self.assertEqual(openwebui_spec["environment"]["AUDIO_TTS_VOICE"], "thorsten")
 
 if __name__ == "__main__":
     unittest.main()

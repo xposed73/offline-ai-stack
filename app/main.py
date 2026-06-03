@@ -266,6 +266,89 @@ async def api_transcribe_audio(
         )
 
 
+from pydantic import BaseModel
+from fastapi import Response
+import httpx
+
+class SpeechRequest(BaseModel):
+    model: str
+    input: str
+    voice: str
+    speed: Optional[float] = 1.0
+
+@app.post("/v1/audio/speech", tags=["Text-to-Speech"])
+@app.post("/audio/speech", tags=["Text-to-Speech"])
+async def api_generate_speech(req: SpeechRequest):
+    """Generates speech from text. Proxies to either CosyVoice or Kokoro depending on configuration."""
+    if not (settings.ENABLE_TTS or settings.ENABLE_COSYVOICE):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Text-to-speech (TTS) services are disabled in configuration."
+        )
+
+    # 1. Determine which backend to route to
+    use_cosyvoice = False
+    if settings.ENABLE_COSYVOICE:
+        v_lower = req.voice.lower().strip()
+        m_lower = req.model.lower().strip()
+        if v_lower == "thorsten" or m_lower == "cosyvoice":
+            use_cosyvoice = True
+        elif not settings.ENABLE_TTS:
+            use_cosyvoice = True
+        elif getattr(settings, "APP_LANGUAGE", "en").lower() == "de" and v_lower in ["", "default", "martin", "thorsten"]:
+            use_cosyvoice = True
+
+    # 2. Proxy request
+    if use_cosyvoice:
+        try:
+            url = f"http://localhost:{settings.COSYVOICE_PORT}/tts"
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                response = await client.post(
+                    url,
+                    data={
+                        "text": req.input,
+                        "speed": str(req.speed or 1.0)
+                    }
+                )
+                if response.status_code != 200:
+                    raise HTTPException(
+                        status_code=response.status_code,
+                        detail=f"CosyVoice container returned an error: {response.text}"
+                    )
+                return Response(content=response.content, media_type="audio/wav")
+        except Exception as e:
+            logger.error(f"Failed to reach CosyVoice TTS service: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"CosyVoice TTS service error: {str(e)}"
+            )
+    else:
+        try:
+            url = f"http://localhost:{settings.KOKORO_PORT}/v1/audio/speech"
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                response = await client.post(
+                    url,
+                    json={
+                        "model": req.model,
+                        "input": req.input,
+                        "voice": req.voice,
+                        "speed": req.speed
+                    }
+                )
+                if response.status_code != 200:
+                    raise HTTPException(
+                        status_code=response.status_code,
+                        detail=f"Kokoro container returned an error: {response.text}"
+                    )
+                return Response(content=response.content, media_type="audio/wav")
+        except Exception as e:
+            logger.error(f"Failed to reach Kokoro TTS service: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Kokoro TTS service error: {str(e)}"
+            )
+
+
 # ==========================================
 # Rich Terminal CLI Actions
 # ==========================================

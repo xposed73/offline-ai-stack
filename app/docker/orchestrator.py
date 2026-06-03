@@ -153,22 +153,28 @@ class DockerOrchestrator:
             webui_env["DEFAULT_SYSTEM_PROMPT"] = "Bitte antworte immer auf Deutsch und formuliere die Sätze präzise."
             webui_env["DEFAULT_LOCALE"] = "de-DE"
             
-        if settings.ENABLE_TTS:
-            tts_voice = settings.KOKORO_VOICE
-            # Kokoro v0.3.0 does not ship with a native German voice out-of-the-box in this image.
-            # Using the default voice (e.g. af_bella) to prevent 400 Bad Request API crashes.
-            if getattr(settings, "APP_LANGUAGE", "en").lower() == "de" and tts_voice.startswith(("af_", "am_", "bf_", "bm_", "df_")):
-                tts_voice = "martin"  # Use the German ONNX voice
-            elif getattr(settings, "APP_LANGUAGE", "en").lower() == "en" and tts_voice == "martin":
-                tts_voice = "af_sky"  # Use the default English ONNX voice
-                
-            webui_env.update({
-                "AUDIO_TTS_ENGINE": "openai",
-                "AUDIO_TTS_OPENAI_API_BASE_URL": f"http://kokoro:{kokoro_internal_port}/v1",
-                "AUDIO_TTS_OPENAI_API_KEY": "not-needed",
-                "AUDIO_TTS_MODEL": settings.KOKORO_MODEL,
-                "AUDIO_TTS_VOICE": tts_voice
-            })
+        if settings.ENABLE_TTS or settings.ENABLE_COSYVOICE:
+            if settings.ENABLE_COSYVOICE:
+                webui_env.update({
+                    "AUDIO_TTS_ENGINE": "openai",
+                    "AUDIO_TTS_OPENAI_API_BASE_URL": f"http://host.docker.internal:{settings.APP_PORT}/v1",
+                    "AUDIO_TTS_OPENAI_API_KEY": "not-needed",
+                    "AUDIO_TTS_MODEL": "cosyvoice",
+                    "AUDIO_TTS_VOICE": "thorsten"
+                })
+            else:
+                tts_voice = settings.KOKORO_VOICE
+                if getattr(settings, "APP_LANGUAGE", "en").lower() == "de" and tts_voice.startswith(("af_", "am_", "bf_", "bm_", "df_")):
+                    tts_voice = "martin"
+                elif getattr(settings, "APP_LANGUAGE", "en").lower() == "en" and tts_voice == "martin":
+                    tts_voice = "af_sky"
+                webui_env.update({
+                    "AUDIO_TTS_ENGINE": "openai",
+                    "AUDIO_TTS_OPENAI_API_BASE_URL": f"http://kokoro:{kokoro_internal_port}/v1",
+                    "AUDIO_TTS_OPENAI_API_KEY": "not-needed",
+                    "AUDIO_TTS_MODEL": settings.KOKORO_MODEL,
+                    "AUDIO_TTS_VOICE": tts_voice
+                })
 
         if settings.ENABLE_STT:
             webui_env.update({
@@ -191,7 +197,26 @@ class DockerOrchestrator:
             "extra_hosts": {"host.docker.internal": "host-gateway"}
         })
 
-
+        if settings.ENABLE_COSYVOICE:
+            cosyvoice_spec = {
+                "name": "cosyvoice",
+                "image": settings.COSYVOICE_IMAGE,
+                "ports": {
+                    "8000/tcp": settings.COSYVOICE_PORT
+                },
+                "volumes": {
+                    str(settings.cosyvoice_path): {"bind": "/app/CosyVoice/pretrained_models", "mode": "rw"}
+                },
+                "environment": {},
+                "extra_hosts": {"host.docker.internal": "host-gateway"}
+            }
+            from app.core.system import detect_gpu
+            gpu_info = detect_gpu()
+            if gpu_info.detected and "metal" not in str(gpu_info.driver_version).lower():
+                cosyvoice_spec["device_requests"] = [
+                    docker.types.DeviceRequest(count=-1, capabilities=[['gpu']])
+                ]
+            services.append(cosyvoice_spec)
 
         services.append({
             "name": "n8n",

@@ -46,6 +46,12 @@ class AppSettings(BaseSettings):
     KOKORO_MODEL: str = Field(default="kokoro", env="KOKORO_MODEL")
     ENABLE_TTS: bool = Field(default=True, env="ENABLE_TTS")
 
+    # CosyVoice (Thorsten) Settings
+    COSYVOICE_PORT: int = Field(default=8008, env="COSYVOICE_PORT")
+    COSYVOICE_IMAGE: str = Field(default="thorstenvoice/cosyvoice-tts:cosyvoice3", env="COSYVOICE_IMAGE")
+    COSYVOICE_STORAGE_DIR: str = Field(default="./data/cosyvoice", env="COSYVOICE_STORAGE_DIR")
+    ENABLE_COSYVOICE: bool = Field(default=True, env="ENABLE_COSYVOICE")
+
     # Offline Speech-to-Text (Whisper) Settings
     ENABLE_STT: bool = Field(default=True, env="ENABLE_STT")
     WHISPER_MODEL: str = Field(default="base", env="WHISPER_MODEL")
@@ -57,6 +63,7 @@ class AppSettings(BaseSettings):
     OPENWEBUI_STORAGE_DIR: str = Field(default="./data/openwebui", env="OPENWEBUI_STORAGE_DIR")
     N8N_STORAGE_DIR: str = Field(default="./data/n8n", env="N8N_STORAGE_DIR")
     KOKORO_STORAGE_DIR: str = Field(default="./data/kokoro", env="KOKORO_STORAGE_DIR")
+    COSYVOICE_STORAGE_DIR: str = Field(default="./data/cosyvoice", env="COSYVOICE_STORAGE_DIR")
     INGESTION_DIR: str = Field(default="./data/ingest", env="INGESTION_DIR")
 
     @property
@@ -85,6 +92,11 @@ class AppSettings(BaseSettings):
         return path if path.is_absolute() else (BASE_DIR / path).resolve()
 
     @property
+    def cosyvoice_path(self) -> Path:
+        path = Path(self.COSYVOICE_STORAGE_DIR)
+        return path if path.is_absolute() else (BASE_DIR / path).resolve()
+
+    @property
     def whisper_path(self) -> Path:
         path = Path(self.WHISPER_STORAGE_DIR)
         return path if path.is_absolute() else (BASE_DIR / path).resolve()
@@ -101,6 +113,7 @@ class AppSettings(BaseSettings):
         self.openwebui_path.mkdir(parents=True, exist_ok=True)
         self.n8n_path.mkdir(parents=True, exist_ok=True)
         self.kokoro_path.mkdir(parents=True, exist_ok=True)
+        self.cosyvoice_path.mkdir(parents=True, exist_ok=True)
         self.whisper_path.mkdir(parents=True, exist_ok=True)
         self.ingest_path.mkdir(parents=True, exist_ok=True)
 
